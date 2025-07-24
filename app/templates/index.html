@@ -2,8 +2,177 @@
 
 {% block content %}
 <div class="container">
-    <h1>Welcome to the Public Speaking Coach</h1>
-    <p>Upload a video to get started.</p>
-    <a href="/upload" class="button">Upload Video</a>
+    <!-- Upload Section -->
+    <div class="upload-section card" x-data="fileUpload()">
+        <h2>Upload a New Video</h2>
+        <p>Drag & drop your file here or click to select.</p>
+        <div
+            class="drop-area"
+            :class="{ 'drag-over': isDragging }"
+            @dragover.prevent="isDragging = true"
+            @dragleave.prevent="isDragging = false"
+            @drop.prevent="handleDrop"
+            @click="$refs.fileInput.click()"
+        >
+            <form id="upload-form" action="/upload" method="post" enctype="multipart/form-data" class="hidden">
+                <input type="file" name="file" @change="handleFileSelect" x-ref="fileInput">
+            </form>
+            <p x-show="!fileName">Drop file here or click to upload</p>
+            <p x-show="fileName" x-text="fileName"></p>
+            <div x-show="error" x-text="error" class="error-message"></div>
+        </div>
+        <button @click="submitForm" :disabled="!file" class="button">Analyze Video</button>
+    </div>
+
+    <!-- Previous Videos Section -->
+    <div class="previous-videos-section card">
+        <h2>Previous Analyses</h2>
+        {% if videos %}
+            <ul class="video-list">
+                {% for video in videos %}
+                <li class="video-list-item">
+                    <a href="/video/{{ video.id }}">
+                        <span class="filename">{{ video.original_filename }}</span>
+                        <span class="date">{{ video.created_at.split(' ')[0] }}</span>
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>You haven't uploaded any videos yet.</p>
+        {% endif %}
+    </div>
 </div>
+
+<script src="//unpkg.com/alpinejs" defer></script>
+<script>
+function fileUpload() {
+    return {
+        isDragging: false,
+        file: null,
+        fileName: '',
+        error: '',
+        handleDrop(event) {
+            this.isDragging = false;
+            const files = event.dataTransfer.files;
+            if (files.length > 0) {
+                this.handleFile(files[0]);
+            }
+        },
+        handleFileSelect(event) {
+            const files = event.target.files;
+            if (files.length > 0) {
+                this.handleFile(files[0]);
+            }
+        },
+        handleFile(file) {
+            const MAX_SIZE = 50 * 1024 * 1024; // 50MB
+            const ALLOWED_TYPES = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm'];
+
+            this.error = '';
+            this.fileName = '';
+
+            if (file.size > MAX_SIZE) {
+                this.error = 'File is too large (max 50MB).';
+                this.file = null;
+                return;
+            }
+
+            if (!ALLOWED_TYPES.includes(file.type)) {
+                this.error = 'Invalid file type. Please upload MP4, MOV, AVI, or WEBM.';
+                this.file = null;
+                return;
+            }
+
+            this.file = file;
+            this.fileName = file.name;
+        },
+        submitForm() {
+            if (this.file) {
+                const form = document.getElementById('upload-form');
+                const formData = new FormData(form);
+                if (!formData.has('file')) {
+                    formData.append('file', this.file, this.fileName);
+                }
+                
+                fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (response.ok) {
+                        window.location.href = response.url;
+                    } else {
+                        response.json().then(data => {
+                            this.error = data.detail || 'An unknown error occurred.';
+                        });
+                    }
+                })
+                .catch(err => {
+                    this.error = 'Upload failed. Please try again.';
+                    console.error('Error:', err);
+                });
+            }
+        }
+    }
+}
+</script>
+<style>
+.card {
+    background-color: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+}
+.drop-area {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    margin-top: 15px;
+    margin-bottom: 15px;
+}
+.drop-area.drag-over {
+    background-color: #f0f0f0;
+    border-color: var(--primary);
+}
+.hidden {
+    display: none;
+}
+.error-message {
+    color: #e74c3c;
+    margin-top: 10px;
+}
+.video-list {
+    list-style: none;
+    padding: 0;
+}
+.video-list-item a {
+    display: flex;
+    justify-content: space-between;
+    padding: 15px;
+    border-radius: var(--radius);
+    text-decoration: none;
+    color: var(--text);
+    transition: background-color 0.2s;
+    border-bottom: 1px solid var(--border);
+}
+.video-list-item:last-child a {
+    border-bottom: none;
+}
+.video-list-item a:hover {
+    background-color: #f9f9f9;
+}
+.filename {
+    font-weight: bold;
+}
+.date {
+    color: #888;
+    font-size: 0.9em;
+}
+</style>
 {% endblock %}

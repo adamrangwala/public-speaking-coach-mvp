@@ -19,6 +19,7 @@ def create_tables():
         filename TEXT NOT NULL,
         original_filename TEXT NOT NULL,
         file_size INTEGER NOT NULL,
+        mime_type TEXT NOT NULL,
         upload_url TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );

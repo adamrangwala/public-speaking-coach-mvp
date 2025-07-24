@@ -1,8 +1,136 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container">
-    <h1>Video Analysis</h1>
-    <p>This is the video analysis page for video ID: {{ video_id }}</p>
+<div class="container" x-data="notesApp({{ video_id }}, 'video')">
+    <h1>Video Analysis: Body Language</h1>
+    <p>Watch the video (muted) and reflect on your body language using the prompts below.</p>
+
+    <!-- Video Player -->
+    <div class="video-container">
+        <video controls muted width="100%">
+            <source src="{{ video.upload_url }}" type="{{ video.mime_type }}">
+            Your browser does not support the video tag.
+        </video>
+    </div>
+
+    <!-- Navigation -->
+    <div class="view-navigation">
+        <a href="/upload" class="nav-link">New Upload</a>
+        <a href="/video/{{ video_id }}" class="nav-link active">Video</a>
+        <a href="/audio/{{ video_id }}" class="nav-link">Audio</a>
+        <a href="/text/{{ video_id }}" class="nav-link">Text</a>
+        <a href="/report/{{ video_id }}" class="nav-link">Report</a>
+    </div>
+
+    <!-- Prompts and Notes -->
+    <div class="notes-section">
+        <h2>Guided Prompts</h2>
+        {% for prompt in prompts %}
+        <div class="prompt-card" x-data="{ content: '{{ prompt.content or '' }}' }">
+            <label for="prompt-{{ prompt.id }}">{{ prompt.question }}</label>
+            <textarea
+                id="prompt-{{ prompt.id }}"
+                rows="4"
+                x-model="content"
+                @input.debounce.500ms="saveNote({{ prompt.id }}, content)"
+                placeholder="Type your notes here..."
+            ></textarea>
+            <div x-show="status['{{ prompt.id }}']" x-text="status['{{ prompt.id }}']" class="status-message"></div>
+        </div>
+        {% endfor %}
+    </div>
 </div>
+
+<script src="//unpkg.com/alpinejs" defer></script>
+<script>
+function notesApp(videoId, viewType) {
+    return {
+        videoId: videoId,
+        viewType: viewType,
+        status: {},
+        saveNote(promptId, content) {
+            this.status[promptId] = 'Saving...';
+            fetch('/api/notes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    video_id: this.videoId,
+                    prompt_id: promptId,
+                    view_type: this.viewType,
+                    content: content
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    this.status[promptId] = 'Saved!';
+                } else {
+                    this.status[promptId] = `Error: ${data.detail || 'Unknown error'}`;
+                }
+                setTimeout(() => { this.status[promptId] = ''; }, 2000);
+            })
+            .catch(() => {
+                this.status[promptId] = 'Error: Could not connect to server.';
+                setTimeout(() => { this.status[promptId] = ''; }, 2000);
+            });
+        }
+    }
+}
+</script>
+<style>
+.video-container {
+    margin-bottom: 20px;
+    background: #000;
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+.view-navigation {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+}
+.nav-link {
+    text-decoration: none;
+    color: var(--text);
+    padding: 8px 15px;
+    border-radius: var(--radius);
+    transition: background-color 0.2s;
+}
+.nav-link.active {
+    background-color: var(--primary);
+    color: #fff;
+}
+.nav-link:hover:not(.active) {
+    background-color: #f0f0f0;
+}
+.prompt-card {
+    background-color: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 15px;
+}
+.prompt-card label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+.prompt-card textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    resize: vertical;
+    box-sizing: border-box; /* Important for width */
+}
+.status-message {
+    font-size: 0.9em;
+    color: #888;
+    text-align: right;
+    margin-top: 5px;
+    height: 1em;
+}
+</style>
 {% endblock %}

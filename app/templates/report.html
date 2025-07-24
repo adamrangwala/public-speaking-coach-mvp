@@ -1,8 +1,141 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container">
-    <h1>Report</h1>
-    <p>This is the report page for video ID: {{ video_id }}</p>
+<div class="container" x-data="reportActions()">
+    <h1>Compiled Report</h1>
+    <p>Here are all your notes from the analysis. You can copy them to your clipboard or download them as a text file.</p>
+
+    <!-- Navigation -->
+    <div class="view-navigation">
+        <a href="/upload" class="nav-link">New Upload</a>
+        <a href="/video/{{ video_id }}" class="nav-link">Video</a>
+        <a href="/audio/{{ video_id }}" class="nav-link">Audio</a>
+        <a href="/text/{{ video_id }}" class="nav-link">Text</a>
+        <a href="/report/{{ video_id }}" class="nav-link active">Report</a>
+    </div>
+
+    <!-- Report Content -->
+    <div id="report-content" class="report-section">
+        {% if notes %}
+            {% for note in notes %}
+            <div class="report-item">
+                <h3>{{ note.question }}</h3>
+                <p>{{ note.content | nl2br }}</p>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p>No notes have been added yet. Go back to the analysis views to add your thoughts.</p>
+        {% endif %}
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="action-buttons">
+        <button @click="copyToClipboard" class="button">Copy to Clipboard</button>
+        <button @click="downloadAsText" class="button secondary">Download as .txt</button>
+        <div x-show="copyStatus" x-text="copyStatus" class="status-message"></div>
+    </div>
 </div>
+
+<script src="//unpkg.com/alpinejs" defer></script>
+<script>
+function reportActions() {
+    return {
+        copyStatus: '',
+        getReportText() {
+            const reportEl = document.getElementById('report-content');
+            let text = 'Public Speaking Analysis Report\n';
+            text += '=================================\n\n';
+            reportEl.querySelectorAll('.report-item').forEach(item => {
+                const question = item.querySelector('h3').innerText;
+                const answer = item.querySelector('p').innerText;
+                text += `Q: ${question}\n`;
+                text += `A: ${answer}\n\n`;
+            });
+            return text;
+        },
+        copyToClipboard() {
+            const text = this.getReportText();
+            navigator.clipboard.writeText(text).then(() => {
+                this.copyStatus = 'Copied!';
+                setTimeout(() => this.copyStatus = '', 2000);
+            }, () => {
+                this.copyStatus = 'Failed to copy.';
+                setTimeout(() => this.copyStatus = '', 2000);
+            });
+        },
+        downloadAsText() {
+            const text = this.getReportText();
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'speaking-report.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    }
+}
+</script>
+<style>
+.view-navigation {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+}
+.nav-link {
+    text-decoration: none;
+    color: var(--text);
+    padding: 8px 15px;
+    border-radius: var(--radius);
+    transition: background-color 0.2s;
+}
+.nav-link.active {
+    background-color: var(--primary);
+    color: #fff;
+}
+.nav-link:hover:not(.active) {
+    background-color: #f0f0f0;
+}
+.report-section {
+    background-color: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 20px;
+}
+.report-item {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+.report-item:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+.report-item h3 {
+    font-size: 1.1em;
+    margin-top: 0;
+    color: var(--primary);
+}
+.report-item p {
+    white-space: pre-wrap; /* Respects newlines from textarea */
+}
+.action-buttons {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+.button.secondary {
+    background-color: var(--secondary);
+}
+.status-message {
+    font-size: 0.9em;
+    color: #888;
+}
+</style>
 {% endblock %}
