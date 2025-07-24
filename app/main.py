@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
 from .database import get_db_connection, create_tables
-from .r2 import is_r2_configured, upload_file_to_r2, test_r2_connection
+from .r2 import is_r2_configured, upload_file_to_r2, test_r2_connection, generate_presigned_url
 
 # --- Constants ---
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
@@ -77,12 +77,12 @@ async def report_page(request: Request, video_id: int):
 
 @app.post("/upload")
 async def handle_upload(file: UploadFile = File(...)):
-    # (Code from previous phase, unchanged)
     if file.size > MAX_FILE_SIZE:
         raise HTTPException(status_code=413, detail="File is too large (max 50MB).")
     file_ext = os.path.splitext(file.filename)[1].lower()
     if file_ext not in ALLOWED_EXTENSIONS or file.content_type not in ALLOWED_MIME_TYPES:
         raise HTTPException(status_code=400, detail="Invalid file type.")
+    
     temp_filename = f"temp_{os.urandom(8).hex()}{file_ext}"
     temp_path = os.path.join(UPLOADS_DIR, temp_filename)
     try:
@@ -90,17 +90,22 @@ async def handle_upload(file: UploadFile = File(...)):
             shutil.copyfileobj(file.file, buffer)
     finally:
         file.file.close()
+
     upload_url = None
     db_filename = temp_filename
+
     if is_r2_configured():
         try:
-            upload_url = upload_file_to_r2(temp_path, temp_filename)
+            # We don't store the direct URL anymore, just the filename (object key)
+            upload_file_to_r2(temp_path, db_filename)
+            upload_url = "R2" # Placeholder to indicate it's in R2
             os.remove(temp_path)
         except Exception as e:
             os.remove(temp_path)
             raise HTTPException(status_code=500, detail=f"R2 upload failed: {e}")
     else:
-        upload_url = f"/{UPLOADS_DIR}/{temp_filename}"
+        upload_url = f"/{UPLOADS_DIR}/{db_filename}"
+
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
@@ -128,7 +133,6 @@ async def save_note(
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        # Use INSERT OR REPLACE to handle both new notes and updates
         cursor.execute("""
             INSERT INTO notes (video_id, prompt_id, view_type, content)
             VALUES (?, ?, ?, ?)
@@ -151,7 +155,6 @@ def read_health():
 
 @app.get("/test-db")
 def test_db_endpoint():
-    # (Code from previous phase, unchanged)
     try:
         conn = get_db_connection()
         conn.execute("SELECT 1")
@@ -170,14 +173,20 @@ async def analysis_page_factory(view_type: str, request: Request, video_id: int)
     """Factory to render video, audio, or text analysis pages."""
     conn = get_db_connection()
     
-    # Fetch video details
     video_cursor = conn.execute("SELECT * FROM videos WHERE id = ?", (video_id,))
-    video = video_cursor.fetchone()
-    if not video:
+    video_data = video_cursor.fetchone()
+    if not video_data:
         conn.close()
         raise HTTPException(status_code=404, detail="Video not found")
 
-    # Fetch prompts and any existing notes for this view
+    video = dict(video_data)
+
+    # If using R2, generate a presigned URL for playback
+    if is_r2_configured() and video.get("filename"):
+        presigned_url = generate_presigned_url(video["filename"])
+        if presigned_url:
+            video["upload_url"] = presigned_url
+    
     prompts_cursor = conn.execute("""
         SELECT p.id, p.question, p.order_index, n.content
         FROM prompts p

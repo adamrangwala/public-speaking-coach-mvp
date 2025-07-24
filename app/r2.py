@@ -56,6 +56,23 @@ def upload_file_to_r2(file_path: str, object_name: str) -> str:
     except FileNotFoundError:
         raise FileNotFoundError(f"Local file not found at path: {file_path}")
 
+def generate_presigned_url(object_name: str, expiration: int = 3600) -> str:
+    """Generate a presigned URL to share an R2 object."""
+    r2_client = get_r2_client()
+    if not r2_client:
+        return None
+
+    try:
+        response = r2_client.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': CLOUDFLARE_R2_BUCKET_NAME, 'Key': object_name},
+            ExpiresIn=expiration
+        )
+        return response
+    except ClientError as e:
+        print(f"Error generating presigned URL: {e}")
+        return None
+
 def test_r2_connection():
     """Test the connection to R2 by listing buckets."""
     r2_client = get_r2_client()
