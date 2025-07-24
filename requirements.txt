@@ -1,4 +1,4 @@
 fastapi
-uvicorn[standard]
-Jinja2
-gunicorn
+uvicorn
+jinja2
+python-decouple
