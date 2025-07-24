@@ -1,13 +1,28 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container" x-data="notesApp({{ video_id }}, 'text')">
+<div class="container" x-data="textAnalysisApp({{ video_id }})">
     <h1>Text Analysis: Content & Structure</h1>
-    <p>Paste your transcript below, then use the prompts to analyze your content.</p>
+    <p>Listen to the audio, transcribe your speech, and use the prompts to analyze your content.</p>
+
+    <!-- Audio Player -->
+    <div class="audio-container">
+        <audio controls width="100%">
+            <source src="{{ video.upload_url }}" type="{{ video.mime_type }}">
+            Your browser does not support the audio tag.
+        </audio>
+    </div>
 
     <!-- Transcript Area -->
-    <div class="transcript-area">
-        <textarea rows="15" placeholder="Paste your speech transcript here..."></textarea>
+    <div class="transcript-area card">
+        <h2>Speech Transcript</h2>
+        <textarea
+            rows="15"
+            placeholder="Paste or type your speech transcript here..."
+            x-model="transcript"
+            @input.debounce.500ms="saveTranscript"
+        ></textarea>
+        <div x-show="transcriptStatus" x-text="transcriptStatus" class="status-message"></div>
     </div>
 
     <!-- Navigation -->
@@ -40,11 +55,36 @@
 
 <script src="//unpkg.com/alpinejs" defer></script>
 <script>
-function notesApp(videoId, viewType) {
+function textAnalysisApp(videoId) {
     return {
         videoId: videoId,
-        viewType: viewType,
+        transcript: `{{ video.transcript or '' | e }}`,
+        transcriptStatus: '',
         status: {},
+        saveTranscript() {
+            this.transcriptStatus = 'Saving...';
+            fetch('/api/transcript', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    video_id: this.videoId,
+                    content: this.transcript
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    this.transcriptStatus = 'Saved!';
+                } else {
+                    this.transcriptStatus = `Error: ${data.detail || 'Unknown error'}`;
+                }
+                setTimeout(() => { this.transcriptStatus = ''; }, 2000);
+            })
+            .catch(() => {
+                this.transcriptStatus = 'Error: Could not connect.';
+                setTimeout(() => { this.transcriptStatus = ''; }, 2000);
+            });
+        },
         saveNote(promptId, content) {
             this.status[promptId] = 'Saving...';
             fetch('/api/notes', {
@@ -53,7 +93,7 @@ function notesApp(videoId, viewType) {
                 body: JSON.stringify({
                     video_id: this.videoId,
                     prompt_id: promptId,
-                    view_type: this.viewType,
+                    view_type: 'text',
                     content: content
                 })
             })
@@ -75,8 +115,19 @@ function notesApp(videoId, viewType) {
 }
 </script>
 <style>
-.transcript-area {
+.card {
+    background-color: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
     margin-bottom: 20px;
+    box-shadow: var(--shadow);
+}
+.audio-container {
+    margin-bottom: 20px;
+}
+audio {
+    width: 100%;
 }
 .transcript-area textarea {
     width: 100%;

@@ -21,6 +21,7 @@ def create_tables():
         file_size INTEGER NOT NULL,
         mime_type TEXT NOT NULL,
         upload_url TEXT,
+        transcript TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """)
@@ -44,7 +45,8 @@ def create_tables():
         content TEXT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (video_id) REFERENCES videos (id),
-        FOREIGN KEY (prompt_id) REFERENCES prompts (id)
+        FOREIGN KEY (prompt_id) REFERENCES prompts (id),
+        UNIQUE(video_id, prompt_id)
     );
     """)
 

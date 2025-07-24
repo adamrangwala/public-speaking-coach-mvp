@@ -147,6 +147,24 @@ async def save_note(
     finally:
         conn.close()
 
+@app.post("/api/transcript")
+async def save_transcript(
+    video_id: int = Body(...),
+    content: str = Body(...)
+):
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            "UPDATE videos SET transcript = ? WHERE id = ?",
+            (content, video_id)
+        )
+        conn.commit()
+        return {"status": "success", "message": "Transcript saved."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+    finally:
+        conn.close()
+
 # --- Health & Test Routes ---
 
 @app.get("/health")
