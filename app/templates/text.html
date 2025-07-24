@@ -22,7 +22,11 @@
             x-model="transcript"
             @input.debounce.500ms="saveTranscript"
         ></textarea>
-        <div x-show="transcriptStatus" x-text="transcriptStatus" class="status-message"></div>
+        <div x-text="transcriptStatus.message"
+             :class="{ 'saved': transcriptStatus.saved }"
+             class="status-message"
+             :style="{ opacity: transcriptStatus.message ? 1 : 0 }">
+        </div>
     </div>
 
     <!-- Navigation -->
@@ -47,7 +51,11 @@
                 @input.debounce.500ms="saveNote({{ prompt.id }}, content)"
                 placeholder="Type your notes here..."
             ></textarea>
-            <div x-show="status['{{ prompt.id }}']" x-text="status['{{ prompt.id }}']" class="status-message"></div>
+            <div x-text="status['{{ prompt.id }}']?.message"
+                 :class="{ 'saved': status['{{ prompt.id }}']?.saved }"
+                 class="status-message"
+                 :style="{ opacity: status['{{ prompt.id }}']?.message ? 1 : 0 }">
+            </div>
         </div>
         {% endfor %}
     </div>
@@ -59,10 +67,10 @@ function textAnalysisApp(videoId) {
     return {
         videoId: videoId,
         transcript: `{{ video.transcript or '' | e }}`,
-        transcriptStatus: '',
+        transcriptStatus: { message: '', saved: false },
         status: {},
         saveTranscript() {
-            this.transcriptStatus = 'Saving...';
+            this.transcriptStatus = { message: 'Saving...', saved: false };
             fetch('/api/transcript', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -74,19 +82,19 @@ function textAnalysisApp(videoId) {
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success') {
-                    this.transcriptStatus = 'Saved!';
+                    this.transcriptStatus = { message: 'Saved!', saved: true };
                 } else {
-                    this.transcriptStatus = `Error: ${data.detail || 'Unknown error'}`;
+                    this.transcriptStatus = { message: `Error: ${data.detail || 'Unknown error'}`, saved: false };
                 }
-                setTimeout(() => { this.transcriptStatus = ''; }, 2000);
+                setTimeout(() => { this.transcriptStatus = { message: '', saved: false }; }, 2000);
             })
             .catch(() => {
-                this.transcriptStatus = 'Error: Could not connect.';
-                setTimeout(() => { this.transcriptStatus = ''; }, 2000);
+                this.transcriptStatus = { message: 'Error: Could not connect.', saved: false };
+                setTimeout(() => { this.transcriptStatus = { message: '', saved: false }; }, 2000);
             });
         },
         saveNote(promptId, content) {
-            this.status[promptId] = 'Saving...';
+            this.status[promptId] = { message: 'Saving...', saved: false };
             fetch('/api/notes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -100,15 +108,15 @@ function textAnalysisApp(videoId) {
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
-                    this.status[promptId] = 'Saved!';
+                    this.status[promptId] = { message: 'Saved!', saved: true };
                 } else {
-                    this.status[promptId] = `Error: ${data.detail || 'Unknown error'}`;
+                    this.status[promptId] = { message: `Error: ${data.detail || 'Unknown error'}`, saved: false };
                 }
-                setTimeout(() => { this.status[promptId] = ''; }, 2000);
+                setTimeout(() => { this.status[promptId] = { message: '', saved: false }; }, 2000);
             })
             .catch(() => {
-                this.status[promptId] = 'Error: Could not connect to server.';
-                setTimeout(() => { this.status[promptId] = ''; }, 2000);
+                this.status[promptId] = { message: 'Error: Could not connect to server.', saved: false };
+                setTimeout(() => { this.status[promptId] = { message: '', saved: false }; }, 2000);
             });
         }
     }
@@ -184,6 +192,11 @@ audio {
     text-align: right;
     margin-top: 5px;
     height: 1em;
+    transition: opacity 0.5s;
+}
+.status-message.saved {
+    color: green;
+    opacity: 1;
 }
 </style>
 {% endblock %}

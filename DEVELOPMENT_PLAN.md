@@ -1,115 +1,47 @@
-# Public Speaking Coach MVP - Development Plan
+# Public Speaking Coach App - V2 Development Plan
 
-This document outlines the development plan for the Public Speaking Coach MVP.
+This document outlines the development plan for V2 of the Public Speaking Coach App. The plan is divided into three phases, with a focus on incremental development, local testing, and deployment to Railway.
 
-## Phase 1: Foundation
+---
 
-**Goal:** Establish the basic FastAPI application structure, serving a simple homepage with the correct styling. This phase focuses on getting the project running locally and ready for deployment.
+## Phase 1: UI/UX Polish
 
-**Tasks:**
-1.  **Project Structure:**
-    *   Create `app` directory.
-    *   Create `app/main.py`: The core FastAPI application file.
-    *   Create `app/templates` directory for Jinja2 templates.
-    *   Create `app/static/css` directory for stylesheets.
-2.  **FastAPI App:**
-    *   In `app/main.py`, create a basic FastAPI instance.
-    *   Implement the `/health` endpoint, which returns `{"status": "healthy"}`.
-    *   Implement a root endpoint `/` that renders an `index.html` template.
-3.  **Frontend:**
-    *   Create `app/templates/base.html`: A base template for all pages.
-    *   Create `app/templates/index.html`: The main landing page.
-    *   Create `app/static/css/style.css`: Include the CSS variables from the design system.
-4.  **Configuration:**
-    *   Create a `requirements.txt` file with `fastapi`, `uvicorn`, `jinja2`, and `python-decouple`.
-    *   Create a `.env` file for local environment variables (`DEBUG=True`, `DATABASE_URL=sqlite:///./app.db`).
-    *   Create `railway.json` with the specified deployment configuration.
+**Goal:** Enhance the user experience with a more responsive and interactive interface.
 
-**Testing Checkpoint 1:**
-*   Run `uvicorn app.main:app --reload` locally.
-*   Access `http://localhost:8000/` and see the styled homepage.
-*   Access `http://localhost:8000/health` and see `{"status": "healthy"}`.
-*   Deploy to Railway and verify the health check.
+**Testing:** All features will be tested locally before deploying to Railway.
 
-## Phase 2: Database & Navigation
+| Step | Feature | Implementation Details | Testing |
+| :--- | :--- | :--- | :--- |
+| 1.1 | **Upload Progress Bar** | - Use Alpine.js to manage the state of the upload (progress, error, success).<br>- Use `XMLHttpRequest` to handle the file upload and listen for the `progress` event.<br>- Update a visual progress bar in `upload.html`. | - Upload a small file and verify the progress bar updates correctly.<br>- Upload a large file to see the progress over time.<br>- Test error handling for failed uploads. |
+| 1.2 | **Relative Timestamps** | - Integrate `timeago.js` into the `base.html` template.<br>- Create a new Jinja2 filter or a small JavaScript function to format timestamps on the frontend.<br>- Apply the filter to the video list on the index page. | - Verify that timestamps are displayed as "5 minutes ago", "yesterday", etc.<br>- Check edge cases like "just now" and dates far in the past. |
+| 1.3 | **Visual Feedback** | - Add CSS transitions for hover effects on buttons and links in `style.css`.<br>- Implement a "Saved!" animation for the notes section using Alpine.js and CSS.<br>- Add subtle animations to page loads. | - Hover over all interactive elements to ensure smooth transitions.<br>- Verify the "Saved!" animation appears and disappears correctly after typing in the notes. |
+| 1.4 | **Better Empty States** | - Update the `index.html` to show a more engaging message when there are no videos.<br>- Include a clear call-to-action to upload the first video. | - Delete all videos from the database and check the empty state message on the dashboard. |
 
-**Goal:** Set up the SQLite database and create the navigation structure for the different analysis views.
+---
 
-**Tasks:**
-1.  **Database Setup:**
-    *   Create `app/database.py` to manage the SQLite connection and table creation.
-    *   Define the `videos`, `notes`, and `prompts` table schemas.
-    *   Create a function to initialize the database.
-2.  **Navigation:**
-    *   In `app/main.py`, add routes for `/upload`, `/video/{video_id}`, `/audio/{video_id}`, `/text/{video_id}`, and `/report/{video_id}`.
-    *   Create basic placeholder templates for each of these pages.
-3.  **Database Testing:**
-    *   Add a `/test-db` endpoint to `app/main.py` that performs a simple create and read operation on the database to verify connectivity.
+## Phase 2: User Authentication
 
-**Testing Checkpoint 2:**
-*   Run the application.
-*   Access `http://localhost:8000/test-db` to confirm the database is working.
-*   Navigate to all the newly created page routes and ensure they render without errors.
+**Goal:** Implement secure user registration and login to protect user privacy.
 
-## Phase 3: File Upload
+**Testing:** All authentication features will be tested locally before deploying to Railway.
 
-**Goal:** Implement the local file upload functionality with validation.
+| Step | Feature | Implementation Details | Testing |
+| :--- | :--- | :--- | :--- |
+| 2.1 | **Database Schema Update** | - Add a `users` table (`id`, `email`, `hashed_password`).<br>- Add a `user_id` foreign key to the `videos` table. | - Run a migration to update the database schema.<br>- Verify the new tables and columns are created correctly. |
+| 2.2 | **Registration & Login** | - Create registration and login pages (`register.html`, `login.html`).<br>- Implement password hashing using `passlib` with `bcrypt`.<br>- Create endpoints for user registration and login. | - Register a new user and verify the password is hashed in the database.<br>- Log in with the new user and verify a session is created. |
+| 2.3 | **Session Management** | - Use JWT for session management.<br>- Store the JWT in an HTTP-only cookie for security. | - Verify the JWT is created on login and stored in a cookie.<br>- Verify the JWT is sent with subsequent requests. |
+| 2.4 | **User-Aware Endpoints** | - Create a dependency to get the current user from the JWT.<br>- Protect all video-related endpoints to ensure users can only access their own videos. | - Log in as one user and verify they can only see their own videos.<br>- Try to access another user's video and verify it's not possible. |
 
-**Tasks:**
-1.  **Upload Interface:**
-    *   On the `/upload` page, create a drag-and-drop file upload interface using HTML and Alpine.js.
-2.  **Backend Logic:**
-    *   In `app/main.py`, create an endpoint to handle the file upload.
-    *   Implement validation for file size (max 50MB) and file type (MP4, MOV, AVI, WEBM).
-    *   Save the uploaded file to a local `uploads` directory.
-    *   Store the file's metadata (filename, size, etc.) in the `videos` table.
-    *   Redirect the user to the analysis view upon successful upload.
+---
 
-**Testing Checkpoint 3:**
-*   Attempt to upload files of various sizes and types to test the validation logic.
-*   Verify that valid files are saved to the `uploads` directory and their metadata is stored in the database.
-*   Ensure that invalid files are rejected with a proper error message.
+## Phase 3: Auto-Transcription
 
-## Phase 4: R2 Integration
+**Goal:** Integrate a speech-to-text service to automatically transcribe user videos.
 
-**Goal:** Replace local file storage with Cloudflare R2.
+**Testing:** All transcription features will be tested locally before deploying to Railway.
 
-**Tasks:**
-1.  **R2 Connection:**
-    *   Add `boto3` to `requirements.txt`.
-    *   Create `app/r2.py` to handle the connection to Cloudflare R2.
-    *   Add R2-related environment variables to the `.env` file.
-2.  **Update Upload Logic:**
-    *   Modify the file upload endpoint in `app/main.py` to upload files to R2 instead of saving them locally.
-    *   Implement a graceful fallback to local storage if R2 is not configured.
-3.  **R2 Testing:**
-    *   Create a `/test-r2` endpoint to verify the connection to R2.
-
-**Testing Checkpoint 4:**
-*   Access `http://localhost:8000/test-r2` to confirm the R2 connection.
-*   Test the file upload functionality to ensure files are being uploaded to R2.
-*   Test the fallback to local storage.
-
-## Phase 5: Analysis Views & Notes
-
-**Goal:** Build the three analysis views and the notes system.
-
-**Tasks:**
-1.  **Analysis Views:**
-    *   **Video View:** Create a muted video player and display body language prompts.
-    *   **Audio View:** Create an audio player and display voice/tone prompts.
-    *   **Text View:** Create a text area for manual transcript input and display content analysis prompts.
-2.  **Prompts:**
-    *   Seed the `prompts` table with the guided questions for each view.
-3.  **Notes System:**
-    *   Create API endpoints to save and retrieve notes for each prompt.
-    *   Use JavaScript to auto-save notes as the user types.
-4.  **Report Generation:**
-    *   Create the `/report/{video_id}` page to display all the notes for a given video.
-    *   Implement "Download as text" and "Copy to clipboard" functionality.
-
-**Testing Checkpoint 5:**
-*   Upload a video and navigate to all three analysis views.
-*   Add notes for each prompt and verify they are saved correctly.
-*   Check that the notes persist between sessions.
-*   View the compiled report and test the download and copy features.
+| Step | Feature | Implementation Details | Testing |
+| :--- | :--- | :--- | :--- |
+| 3.1 | **Speech-to-Text Integration** | - Choose and integrate a speech-to-text API (e.g., AssemblyAI, Deepgram, OpenAI Whisper).<br>- Add API keys to the environment variables. | - Upload a video and verify the transcription is requested from the API. |
+| 3.2 | **Background Task Processing** | - Use FastAPI's `BackgroundTasks` to process the transcription in the background.<br>- Add a `transcript_status` column to the `videos` table. | - Upload a video and verify the transcription status is updated correctly. |
+| 3.3 | **Webhook Endpoint** | - Create a webhook endpoint to receive the completed transcript from the speech-to-text service.<br>- Update the `videos` table with the transcript and set the status to "completed". | - Mock a webhook call to the endpoint and verify the transcript is saved correctly. |

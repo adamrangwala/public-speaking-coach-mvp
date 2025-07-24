@@ -21,7 +21,15 @@
             <p x-show="fileName" x-text="fileName"></p>
             <div x-show="error" x-text="error" class="error-message"></div>
         </div>
-        <button @click="submitForm" :disabled="!file" class="button">Analyze Video</button>
+        <div x-show="isUploading" class="progress-bar-container">
+            <div class="progress-bar" :style="`width: ${progress}%`">
+                <span x-text="progress > 0 ? `${progress}%` : ''"></span>
+            </div>
+        </div>
+        <button @click="submitForm" :disabled="!file || isUploading" class="button">
+            <span x-show="!isUploading">Analyze Video</span>
+            <span x-show="isUploading">Uploading...</span>
+        </button>
     </div>
 
     <!-- Previous Videos Section -->
@@ -33,13 +41,17 @@
                 <li class="video-list-item">
                     <a href="/video/{{ video.id }}">
                         <span class="filename">{{ video.original_filename }}</span>
-                        <span class="date">{{ video.created_at.split(' ')[0] }}</span>
+                        <span class="date" data-created-at="{{ video.created_at }}"></span>
                     </a>
                 </li>
                 {% endfor %}
             </ul>
         {% else %}
-            <p>You haven't uploaded any videos yet.</p>
+            <div class="empty-state" style="text-align: center; padding: 40px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" style="color: #ccc; margin-bottom: 20px;"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>
+                <h3>Ready to improve?</h3>
+                <p>Upload your first video to get started with your analysis.</p>
+            </div>
         {% endif %}
     </div>
 </div>
@@ -52,6 +64,8 @@ function fileUpload() {
         file: null,
         fileName: '',
         error: '',
+        progress: 0,
+        isUploading: false,
         handleDrop(event) {
             this.isDragging = false;
             const files = event.dataTransfer.files;
@@ -89,33 +103,67 @@ function fileUpload() {
         },
         submitForm() {
             if (this.file) {
-                const form = document.getElementById('upload-form');
-                const formData = new FormData(form);
-                if (!formData.has('file')) {
-                    formData.append('file', this.file, this.fileName);
-                }
-                
-                fetch('/upload', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => {
-                    if (response.ok) {
-                        window.location.href = response.url;
-                    } else {
-                        response.json().then(data => {
-                            this.error = data.detail || 'An unknown error occurred.';
-                        });
+                this.isUploading = true;
+                this.progress = 0;
+                this.error = '';
+
+                const formData = new FormData();
+                formData.append('file', this.file, this.fileName);
+
+                const xhr = new XMLHttpRequest();
+
+                xhr.upload.addEventListener('progress', (event) => {
+                    if (event.lengthComputable) {
+                        const percentComplete = Math.round((event.loaded / event.total) * 100);
+                        this.progress = percentComplete;
                     }
-                })
-                .catch(err => {
-                    this.error = 'Upload failed. Please try again.';
-                    console.error('Error:', err);
                 });
+
+                xhr.addEventListener('load', () => {
+                    this.isUploading = false;
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        // Redirect will be followed, final URL is in responseURL
+                        if (xhr.responseURL) {
+                            window.location.href = xhr.responseURL;
+                        } else {
+                            // Fallback for browsers that might not support responseURL in all cases
+                            this.error = 'Upload successful, but redirect failed. Please refresh.';
+                        }
+                    } else {
+                        try {
+                            const data = JSON.parse(xhr.responseText);
+                            this.error = data.detail || 'An unknown error occurred.';
+                        } catch (e) {
+                            this.error = `An error occurred: ${xhr.statusText}`;
+                        }
+                    }
+                });
+
+                xhr.addEventListener('error', () => {
+                    this.isUploading = false;
+                    this.error = 'Upload failed. Please try again.';
+                    console.error('Error:', xhr.statusText);
+                });
+
+                xhr.open('POST', '/upload', true);
+                xhr.send(formData);
             }
         }
     }
 }
+
+document.addEventListener('DOMContentLoaded', function () {
+    const dateElements = document.querySelectorAll('.date[data-created-at]');
+    dateElements.forEach(function(element) {
+        const createdAt = element.getAttribute('data-created-at');
+        // SQLite format is 'YYYY-MM-DD HH:MM:SS'. We need to make it ISO compliant for JS Date.
+        // Appending 'Z' assumes the database stores time in UTC.
+        const isoTimestamp = createdAt.replace(' ', 'T') + 'Z';
+        const date = new Date(isoTimestamp);
+        // Use timeago.js to format the date
+        element.textContent = timeago.format(date);
+    });
+});
 </script>
 <style>
 .card {

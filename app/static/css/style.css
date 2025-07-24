@@ -34,4 +34,32 @@ body {
     display: inline-block;
     border: none;
     cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+.button:hover {
+    background-color: var(--secondary);
+}
+
+.button:active {
+    transform: scale(0.98);
+}
+
+.progress-bar-container {
+    width: 100%;
+    background-color: #f3f3f3;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-top: 15px;
+    margin-bottom: 15px;
+}
+
+.progress-bar {
+    height: 24px;
+    background-color: var(--primary);
+    text-align: center;
+    line-height: 24px;
+    color: white;
+    transition: width 0.3s ease-in-out;
 }

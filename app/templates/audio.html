@@ -35,7 +35,11 @@
                 @input.debounce.500ms="saveNote({{ prompt.id }}, content)"
                 placeholder="Type your notes here..."
             ></textarea>
-            <div x-show="status['{{ prompt.id }}']" x-text="status['{{ prompt.id }}']" class="status-message"></div>
+            <div x-text="status['{{ prompt.id }}']?.message"
+                 :class="{ 'saved': status['{{ prompt.id }}']?.saved }"
+                 class="status-message"
+                 :style="{ opacity: status['{{ prompt.id }}']?.message ? 1 : 0 }">
+            </div>
         </div>
         {% endfor %}
     </div>
@@ -49,7 +53,7 @@ function notesApp(videoId, viewType) {
         viewType: viewType,
         status: {},
         saveNote(promptId, content) {
-            this.status[promptId] = 'Saving...';
+            this.status[promptId] = { message: 'Saving...', saved: false };
             fetch('/api/notes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -63,15 +67,15 @@ function notesApp(videoId, viewType) {
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
-                    this.status[promptId] = 'Saved!';
+                    this.status[promptId] = { message: 'Saved!', saved: true };
                 } else {
-                    this.status[promptId] = `Error: ${data.detail || 'Unknown error'}`;
+                    this.status[promptId] = { message: `Error: ${data.detail || 'Unknown error'}`, saved: false };
                 }
-                setTimeout(() => { this.status[promptId] = ''; }, 2000);
+                setTimeout(() => { this.status[promptId] = { message: '', saved: false }; }, 2000);
             })
             .catch(() => {
-                this.status[promptId] = 'Error: Could not connect to server.';
-                setTimeout(() => { this.status[promptId] = ''; }, 2000);
+                this.status[promptId] = { message: 'Error: Could not connect to server.', saved: false };
+                setTimeout(() => { this.status[promptId] = { message: '', saved: false }; }, 2000);
             });
         }
     }
@@ -132,6 +136,11 @@ audio {
     text-align: right;
     margin-top: 5px;
     height: 1em;
+    transition: opacity 0.5s;
+}
+.status-message.saved {
+    color: green;
+    opacity: 1;
 }
 </style>
 {% endblock %}
