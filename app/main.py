@@ -358,15 +358,19 @@ async def analysis_page_factory(view_type: str, request: Request, video_id: int)
     video = dict(video_data)
 
     # Determine the correct URL to use based on the page and configuration
-    if view_type == 'video' and video.get("hls_playlist_url"):
-        # For the video page, always prioritize the HLS stream if it exists
+    if is_r2_configured():
+        if view_type == 'video' and video.get("hls_playlist_url"):
+            # For the video page, prioritize the HLS stream
+            video["upload_url"] = video["hls_playlist_url"]
+        elif video.get("filename"):
+            # For audio/text pages on R2, always generate a presigned URL
+            presigned_url = generate_presigned_url(video["filename"])
+            if presigned_url:
+                video["upload_url"] = presigned_url
+    elif view_type == 'video' and video.get("hls_playlist_url"):
+        # For local video playback, use the HLS stream
         video["upload_url"] = video["hls_playlist_url"]
-    elif is_r2_configured() and video.get("filename"):
-        # For audio/text pages on R2, generate a presigned URL for the original file
-        presigned_url = generate_presigned_url(video["filename"])
-        if presigned_url:
-            video["upload_url"] = presigned_url
-    # If not R2 and not HLS, the default local file URL in the DB is used
+    # If local and not HLS, the default local file URL in the DB is used
     
     prompts_cursor = conn.execute("""
         SELECT p.id, p.question, p.order_index, n.content

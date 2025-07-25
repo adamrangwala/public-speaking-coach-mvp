@@ -29,9 +29,8 @@ def transcode_to_hls(input_path: str, video_id: int):
             )
             .run(capture_stdout=True, capture_stderr=True)
         )
-    except ffmpeg.Error as e:
-        print('stdout:', e.stdout.decode('utf8'))
-        print('stderr:', e.stderr.decode('utf8'))
+    except Exception as e:
+        print(f"Error during transcoding: {e}")
         raise e
 
     return f"/{output_dir}/playlist.m3u8".replace("\\", "/")
