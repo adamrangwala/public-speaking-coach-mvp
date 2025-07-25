@@ -24,6 +24,7 @@ def create_tables():
         upload_url TEXT,
         transcript TEXT,
         hls_playlist_url TEXT,
+        transcription_status TEXT DEFAULT 'not_started',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """)

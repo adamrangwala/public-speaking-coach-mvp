@@ -2,6 +2,7 @@
 
 {% block content %}
 <div class="container" x-data="textAnalysisApp({{ video_id }})">
+    <script id="video-data" type="application/json">{{ video | tojson | safe }}</script>
     <h1>3. Audio Transcription Review</h1>
     <p>Listen to the audio, transcribe your speech, and use the prompts to analyze your content.</p>
 
@@ -16,6 +17,9 @@
     <!-- Transcript Area -->
     <div class="transcript-area card">
         <h2>Speech Transcript</h2>
+        <div class="transcript-controls" x-show="!transcript && video.transcription_status === 'not_started'">
+            <button @click="startTranscription" class="button">Auto-Transcribe Audio</button>
+        </div>
         <div x-show="isPolling" class="polling-message" x-cloak>
             <p>Your transcript is being processed. This page will update automatically when it's ready.</p>
             <div class="spinner"></div>
@@ -73,11 +77,34 @@ function textAnalysisApp(videoId) {
         status: {},
         isPolling: false,
         pollingInterval: null,
+        video: {},
+
         init() {
-            this.fetchTranscript();
+            this.video = JSON.parse(document.getElementById('video-data').textContent);
+            this.transcript = this.video.transcript || '';
+            // If transcription is in a state that requires polling, start immediately.
+            if (['pending', 'in_progress'].includes(this.video.transcription_status)) {
+                this.startPolling();
+            }
         },
+
+        startTranscription() {
+            this.transcriptStatus = { message: 'Initiating transcription...', saved: false };
+            fetch(`/api/video/${this.videoId}/start-transcription`, { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        this.startPolling();
+                    } else {
+                        this.transcriptStatus = { message: `Error: ${data.detail || 'Failed to start'}`, saved: false };
+                    }
+                })
+                .catch(() => {
+                    this.transcriptStatus = { message: 'Error: Could not connect.', saved: false };
+                });
+        },
+
         fetchTranscript() {
-            // Add a cache-busting parameter to prevent the browser from caching the request
             const url = `/api/video/${this.videoId}/transcript?t=${new Date().getTime()}`;
             fetch(url)
                 .then(res => res.json())
@@ -85,35 +112,37 @@ function textAnalysisApp(videoId) {
                     if (data.transcript) {
                         this.transcript = data.transcript;
                         this.stopPolling();
-                    } else if (data.is_processing) {
-                        this.startPolling();
-                    } else {
-                        // Not processing and no transcript, so stop.
+                    } else if (!data.is_processing) {
+                        // If it's no longer processing but we don't have a transcript, stop polling.
                         this.stopPolling();
                     }
+                    // Otherwise, continue polling...
                 })
                 .catch(err => {
                     console.error("Error fetching transcript:", err);
-                    this.stopPolling();
+                    this.stopPolling(); // Stop on error
                 });
         },
+
         startPolling() {
             this.isPolling = true;
-            this.transcriptStatus = { message: 'Processing transcript...', saved: false };
+            this.transcriptStatus = { message: 'Processing transcript...', saved: false, processing: true };
             if (!this.pollingInterval) {
-                this.pollingInterval = setInterval(() => this.fetchTranscript(), 3000); // Poll every 3 seconds
+                this.pollingInterval = setInterval(() => this.fetchTranscript(), 3000);
             }
         },
+
         stopPolling() {
             this.isPolling = false;
-            this.transcriptStatus = { message: '', saved: false };
+            this.transcriptStatus = { message: '', saved: false, processing: false };
             if (this.pollingInterval) {
                 clearInterval(this.pollingInterval);
                 this.pollingInterval = null;
             }
         },
+
         saveTranscript() {
-            if (this.isPolling) return; // Don't save while polling
+            if (this.isPolling) return;
             this.transcriptStatus = { message: 'Saving...', saved: false };
             fetch('/api/transcript', {
                 method: 'POST',
