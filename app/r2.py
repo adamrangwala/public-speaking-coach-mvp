@@ -33,28 +33,21 @@ def get_r2_client():
     except Exception:
         return None
 
-def upload_file_to_r2(file_path: str, object_name: str) -> str:
-    """Upload a file to R2 and return the public URL."""
+def upload_file_to_r2(file_obj, object_name: str):
+    """Upload a file-like object to R2."""
     r2_client = get_r2_client()
     if not r2_client:
         raise ConnectionError("R2 client is not available or configured.")
 
     try:
-        with open(file_path, "rb") as f:
-            r2_client.upload_fileobj(
-                f,
-                CLOUDFLARE_R2_BUCKET_NAME,
-                object_name
-            )
-        # Construct the public URL
-        public_url = f"{CLOUDFLARE_R2_ENDPOINT}/{CLOUDFLARE_R2_BUCKET_NAME}/{object_name}"
-        return public_url
+        r2_client.upload_fileobj(
+            file_obj,
+            CLOUDFLARE_R2_BUCKET_NAME,
+            object_name
+        )
     except ClientError as e:
-        # Log the error and re-raise a more generic exception
         print(f"Error uploading to R2: {e}")
         raise IOError("Could not upload file to R2.")
-    except FileNotFoundError:
-        raise FileNotFoundError(f"Local file not found at path: {file_path}")
 
 def download_file_from_r2(object_name: str, destination_path: str):
     """Download a file from an R2 bucket."""

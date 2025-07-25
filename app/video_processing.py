@@ -3,12 +3,12 @@ import ffmpeg
 
 HLS_PLAYLIST_DIR = "hls_playlists"
 
-def transcode_to_hls(input_path: str, video_id: int):
+def transcode_to_hls(input_url: str, video_id: int):
     """
-    Transcodes a video file to HLS format.
+    Transcodes a video from a URL to HLS format.
 
     Args:
-        input_path: The path to the input video file.
+        input_url: The URL of the input video file.
         video_id: The ID of the video, used for the output directory.
     """
     output_dir = os.path.join(HLS_PLAYLIST_DIR, str(video_id))
@@ -19,7 +19,7 @@ def transcode_to_hls(input_path: str, video_id: int):
     try:
         (
             ffmpeg
-            .input(input_path)
+            .input(input_url)
             .output(
                 output_file,
                 format='hls',
