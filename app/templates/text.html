@@ -14,6 +14,7 @@
     </div>
 
     <!-- Transcript Area -->
+    <div id="transcript-data" style="display: none;">{{ video.transcript or '' }}</div>
     <div class="transcript-area card">
         <h2>Speech Transcript</h2>
         <textarea
@@ -63,9 +64,12 @@
 function textAnalysisApp(videoId) {
     return {
         videoId: videoId,
-        transcript: `{{ video.transcript or '' | e }}`,
+        transcript: '',
         transcriptStatus: { message: '', saved: false },
         status: {},
+        init() {
+            this.transcript = document.getElementById('transcript-data').textContent.trim();
+        },
         saveTranscript() {
             this.transcriptStatus = { message: 'Saving...', saved: false };
             fetch('/api/transcript', {

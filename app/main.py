@@ -1,4 +1,5 @@
 import os
+import json
 import shutil
 from datetime import datetime, timezone
 from fastapi import FastAPI, Request, UploadFile, File, HTTPException, Body, BackgroundTasks
@@ -39,6 +40,7 @@ def nl2br(value: str) -> str:
     return Markup(value.replace('\n', '<br>\n'))
 
 templates.env.filters['nl2br'] = nl2br
+templates.env.filters['tojson'] = json.dumps
 
 @app.on_event("startup")
 def on_startup():
