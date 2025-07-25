@@ -10,6 +10,7 @@ from .database import get_db_connection, create_tables
 from .r2 import is_r2_configured, upload_file_to_r2, test_r2_connection, generate_presigned_url
 from .seed_prompts import seed_prompts
 from .video_processing import transcode_to_hls
+from .transcription import is_transcription_configured, submit_for_transcription
 
 # --- Constants ---
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
@@ -203,6 +204,28 @@ async def save_transcript(
     finally:
         conn.close()
 
+@app.post("/api/webhook/transcription")
+async def transcription_webhook(request: Request):
+    """Webhook endpoint to receive transcription results from AssemblyAI."""
+    data = await request.json()
+    transcript_id = data.get("transcript_id")
+    status = data.get("status")
+    text = data.get("text")
+    video_id = data.get("video_id") # We will pass this in the webhook URL
+
+    if not all([transcript_id, status, text, video_id]):
+        raise HTTPException(status_code=400, detail="Missing required fields in webhook data.")
+
+    if status == "completed":
+        conn = get_db_connection()
+        try:
+            conn.execute("UPDATE videos SET transcript = ? WHERE id = ?", (text, video_id))
+            conn.commit()
+        finally:
+            conn.close()
+    
+    return {"status": "success"}
+
 @app.delete("/api/video/{video_id}")
 async def delete_video(video_id: int):
     conn = get_db_connection()
@@ -266,7 +289,7 @@ def test_r2_endpoint():
 # --- Helper Functions ---
 
 def transcode_and_update_db(video_path: str, video_id: int, is_r2: bool):
-    """Background task to transcode video and update database."""
+    """Background task to transcode video, trigger transcription, and update database."""
     try:
         hls_url = transcode_to_hls(video_path, video_id)
         
@@ -276,12 +299,26 @@ def transcode_and_update_db(video_path: str, video_id: int, is_r2: bool):
             conn.commit()
         finally:
             conn.close()
-            
+
+        if is_transcription_configured():
+            # We need a publicly accessible URL for the video file
+            if is_r2:
+                video_url = generate_presigned_url(os.path.basename(video_path))
+            else:
+                # This will only work if the application is publicly accessible
+                # For local development, we can use a service like ngrok to expose the local server
+                # For now, we assume the server is accessible at BASE_URL
+                BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
+                video_url = f"{BASE_URL}/{UPLOADS_DIR}/{os.path.basename(video_path)}"
+
+            webhook_url = f"{os.getenv('BASE_URL', 'http://localhost:8000')}/api/webhook/transcription?video_id={video_id}"
+            submit_for_transcription(video_url, webhook_url)
+
     except Exception as e:
-        print(f"Error during transcoding for video_id {video_id}: {e}")
+        print(f"Error during background processing for video_id {video_id}: {e}")
     finally:
-        # Clean up the original uploaded file
-        if os.path.exists(video_path):
+        # Clean up the original uploaded file if not in R2
+        if not is_r2 and os.path.exists(video_path):
             os.remove(video_path)
 
 async def analysis_page_factory(view_type: str, request: Request, video_id: int):

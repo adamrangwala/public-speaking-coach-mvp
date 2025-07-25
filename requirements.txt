@@ -5,3 +5,4 @@ python-decouple
 python-multipart
 boto3
 python-ffmpeg
+assemblyai
