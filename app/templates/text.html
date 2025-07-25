@@ -77,7 +77,9 @@ function textAnalysisApp(videoId) {
             this.fetchTranscript();
         },
         fetchTranscript() {
-            fetch(`/api/video/${this.videoId}/transcript`)
+            // Add a cache-busting parameter to prevent the browser from caching the request
+            const url = `/api/video/${this.videoId}/transcript?t=${new Date().getTime()}`;
+            fetch(url)
                 .then(res => res.json())
                 .then(data => {
                     if (data.transcript) {
