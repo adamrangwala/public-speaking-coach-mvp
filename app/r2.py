@@ -56,6 +56,18 @@ def upload_file_to_r2(file_path: str, object_name: str) -> str:
     except FileNotFoundError:
         raise FileNotFoundError(f"Local file not found at path: {file_path}")
 
+def download_file_from_r2(object_name: str, destination_path: str):
+    """Download a file from an R2 bucket."""
+    r2_client = get_r2_client()
+    if not r2_client:
+        raise ConnectionError("R2 client is not available or configured.")
+
+    try:
+        r2_client.download_file(CLOUDFLARE_R2_BUCKET_NAME, object_name, destination_path)
+    except ClientError as e:
+        print(f"Error downloading file from R2: {e}")
+        raise IOError(f"Could not download file from R2: {object_name}")
+
 def generate_presigned_url(object_name: str, expiration: int = 3600) -> str:
     """Generate a presigned URL to share an R2 object."""
     r2_client = get_r2_client()

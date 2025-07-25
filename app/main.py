@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
 from .database import get_db_connection, create_tables
-from .r2 import is_r2_configured, upload_file_to_r2, test_r2_connection, generate_presigned_url
+from .r2 import is_r2_configured, upload_file_to_r2, download_file_from_r2, test_r2_connection, generate_presigned_url
 from .seed_prompts import seed_prompts
 from .video_processing import transcode_to_hls
 from .transcription import is_transcription_configured, submit_for_transcription
@@ -135,6 +135,7 @@ async def handle_upload(background_tasks: BackgroundTasks, file: UploadFile = Fi
         try:
             upload_file_to_r2(temp_path, db_filename)
             upload_url = "R2"
+            os.remove(temp_path) # Clean up immediately after successful R2 upload
         except Exception as e:
             os.remove(temp_path)
             raise HTTPException(status_code=500, detail=f"R2 upload failed: {e}")
@@ -158,7 +159,7 @@ async def handle_upload(background_tasks: BackgroundTasks, file: UploadFile = Fi
         conn.close()
 
     # Start transcoding in the background
-    background_tasks.add_task(transcode_and_update_db, temp_path, video_id, is_r2_configured())
+    background_tasks.add_task(transcode_and_update_db, db_filename, video_id, is_r2_configured())
 
     return RedirectResponse(url=f"/audio/{video_id}", status_code=303)
 
@@ -308,11 +309,20 @@ async def get_video_file(video_id: int):
 
 # --- Helper Functions ---
 
-def transcode_and_update_db(video_path: str, video_id: int, is_r2: bool):
-    """Background task to transcode video, trigger transcription, and update database."""
+def transcode_and_update_db(db_filename: str, video_id: int, is_r2: bool):
+    """
+    Background task to transcode video, trigger transcription, and update database.
+    This function is now stateless regarding the local file system for R2 uploads.
+    """
+    video_path = os.path.join(UPLOADS_DIR, db_filename)
+    
     try:
+        # If using R2, download the file first for processing
+        if is_r2:
+            download_file_from_r2(db_filename, video_path)
+
+        # 1. Transcode to HLS
         hls_url = transcode_to_hls(video_path, video_id)
-        
         conn = get_db_connection()
         try:
             conn.execute("UPDATE videos SET hls_playlist_url = ? WHERE id = ?", (hls_url, video_id))
@@ -320,19 +330,19 @@ def transcode_and_update_db(video_path: str, video_id: int, is_r2: bool):
         finally:
             conn.close()
 
+        # 2. Trigger Transcription
         if is_transcription_configured():
-            # Use the new endpoint to provide a stable URL for transcription
             BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
-            video_url = f"{BASE_URL}/video-file/{video_id}"
+            # If on R2, use the stable redirect endpoint. Otherwise, use the direct local file URL.
+            video_url = f"{BASE_URL}/video-file/{video_id}" if is_r2 else f"{BASE_URL}/{video_path}"
             webhook_url = f"{BASE_URL}/api/webhook/transcription?video_id={video_id}"
-            
             submit_for_transcription(video_url, webhook_url)
 
     except Exception as e:
         print(f"Error during background processing for video_id {video_id}: {e}")
     finally:
-        # Clean up the original uploaded file if not in R2
-        if not is_r2 and os.path.exists(video_path):
+        # Clean up the downloaded/local file after all processing is done
+        if os.path.exists(video_path):
             os.remove(video_path)
 
 async def analysis_page_factory(view_type: str, request: Request, video_id: int):
