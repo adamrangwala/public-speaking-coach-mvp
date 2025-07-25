@@ -206,13 +206,12 @@ async def save_transcript(
         conn.close()
 
 @app.post("/api/webhook/transcription")
-async def transcription_webhook(request: Request):
+async def transcription_webhook(request: Request, video_id: int):
     """Webhook endpoint to receive transcription results from AssemblyAI."""
     data = await request.json()
     transcript_id = data.get("transcript_id")
     status = data.get("status")
     text = data.get("text")
-    video_id = data.get("video_id") # We will pass this in the webhook URL
 
     if not all([transcript_id, status, text, video_id]):
         raise HTTPException(status_code=400, detail="Missing required fields in webhook data.")
