@@ -159,7 +159,7 @@ async def handle_upload(background_tasks: BackgroundTasks, file: UploadFile = Fi
         conn.close()
 
     # Start transcoding in the background
-    background_tasks.add_task(transcode_and_update_db, db_filename, video_id, is_r2_configured())
+    background_tasks.add_task(transcode_and_update_db, temp_filename, video_id, is_r2_configured())
 
     return RedirectResponse(url=f"/audio/{video_id}", status_code=303)
 
@@ -246,10 +246,10 @@ async def delete_video(video_id: int):
                 # Log the error but proceed to delete DB record
                 print(f"Could not delete file from R2: {e}")
         else:
-            local_path = os.path.join(UPLOADS_DIR, video_data["filename"])
-            if os.path.exists(local_path):
-                os.remove(local_path)
-            
+            # Clean up the permanent video file and its HLS playlist
+            permanent_path = os.path.join(UPLOADS_DIR, video_data["filename"])
+            if os.path.exists(permanent_path):
+                os.remove(permanent_path)
             hls_dir = os.path.join(HLS_PLAYLIST_DIR, str(video_id))
             if os.path.exists(hls_dir):
                 shutil.rmtree(hls_dir)
@@ -309,41 +309,55 @@ async def get_video_file(video_id: int):
 
 # --- Helper Functions ---
 
-def transcode_and_update_db(db_filename: str, video_id: int, is_r2: bool):
+def transcode_and_update_db(temp_filename: str, video_id: int, is_r2: bool):
     """
-    Background task to transcode video, trigger transcription, and update database.
-    This function is now stateless regarding the local file system for R2 uploads.
+    Background task to process video:
+    1. Renames temp file to a permanent one (if local).
+    2. Updates DB with permanent file path.
+    3. Transcodes to HLS.
+    4. Triggers transcription.
     """
-    video_path = os.path.join(UPLOADS_DIR, db_filename)
-    
+    temp_path = os.path.join(UPLOADS_DIR, temp_filename)
+    permanent_filename = temp_filename # On R2, the filename is already permanent
+    video_path = temp_path
+
     try:
-        # If using R2, download the file first for processing
-        if is_r2:
-            download_file_from_r2(db_filename, video_path)
-
-        # 1. Transcode to HLS
-        hls_url = transcode_to_hls(video_path, video_id)
         conn = get_db_connection()
-        try:
-            conn.execute("UPDATE videos SET hls_playlist_url = ? WHERE id = ?", (hls_url, video_id))
-            conn.commit()
-        finally:
-            conn.close()
 
-        # 2. Trigger Transcription
+        # If not using R2, create a permanent file path and update the DB
+        if not is_r2:
+            file_ext = os.path.splitext(temp_filename)[1]
+            permanent_filename = f"video_{video_id}{file_ext}"
+            permanent_path = os.path.join(UPLOADS_DIR, permanent_filename)
+            os.rename(temp_path, permanent_path)
+            video_path = permanent_path # Use the new path for transcoding
+
+            upload_url = f"/{UPLOADS_DIR}/{permanent_filename}"
+            conn.execute(
+                "UPDATE videos SET filename = ?, upload_url = ? WHERE id = ?",
+                (permanent_filename, upload_url, video_id)
+            )
+            conn.commit()
+
+        # Transcode to HLS
+        hls_url = transcode_to_hls(video_path, video_id)
+        conn.execute("UPDATE videos SET hls_playlist_url = ? WHERE id = ?", (hls_url, video_id))
+        conn.commit()
+        conn.close()
+
+        # Trigger Transcription
         if is_transcription_configured():
             BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
-            # If on R2, use the stable redirect endpoint. Otherwise, use the direct local file URL.
-            video_url = f"{BASE_URL}/video-file/{video_id}" if is_r2 else f"{BASE_URL}/{video_path}"
+            video_url = f"{BASE_URL}/video-file/{video_id}" if is_r2 else f"{BASE_URL}/{UPLOADS_DIR}/{permanent_filename}"
             webhook_url = f"{BASE_URL}/api/webhook/transcription?video_id={video_id}"
             submit_for_transcription(video_url, webhook_url)
 
     except Exception as e:
         print(f"Error during background processing for video_id {video_id}: {e}")
     finally:
-        # Clean up the downloaded/local file after all processing is done
-        if os.path.exists(video_path):
-            os.remove(video_path)
+        # Clean up the original temp file if it wasn't renamed (i.e., on R2)
+        if is_r2 and os.path.exists(temp_path):
+            os.remove(temp_path)
 
 async def analysis_page_factory(view_type: str, request: Request, video_id: int):
     """Factory to render video, audio, or text analysis pages."""
