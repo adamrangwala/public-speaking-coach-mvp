@@ -14,20 +14,24 @@ def get_transcriber():
     aai.settings.api_key = ASSEMBLYAI_API_KEY
     return aai.Transcriber()
 
-def submit_for_transcription(file_url: str, webhook_url: str) -> str:
+def transcribe_and_poll(file_url: str) -> str:
     """
-    Submits a file to AssemblyAI for transcription and returns the transcript ID.
+    Transcribes a file from a URL using AssemblyAI and polls for the result.
+    Returns the transcript text.
     """
     transcriber = get_transcriber()
     if not transcriber:
         raise ConnectionError("AssemblyAI client is not available or configured.")
 
     config = aai.TranscriptionConfig(
-        webhook_url=webhook_url,
         punctuate=True,
-        format_text=True
+        format_text=True,
+        speech_model=aai.SpeechModel.best
     )
-    
-    transcript = transcriber.submit(file_url, config=config)
-    
-    return transcript.id
+
+    transcript = transcriber.transcribe(file_url, config=config)
+
+    if transcript.status == aai.TranscriptStatus.error:
+        raise RuntimeError(f"Transcription failed: {transcript.error}")
+
+    return transcript.text

@@ -2,7 +2,6 @@ import os
 import json
 import shutil
 import sys
-import logging
 from datetime import datetime, timezone
 from fastapi import FastAPI, Request, UploadFile, File, HTTPException, Body, BackgroundTasks
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
@@ -15,13 +14,6 @@ from .seed_prompts import seed_prompts
 from .video_processing import transcode_to_hls
 from .transcription import is_transcription_configured, submit_for_transcription
 
-# --- Logging Configuration ---
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    stream=sys.stdout,
-)
-logger = logging.getLogger(__name__)
 
 # --- Constants ---
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
@@ -247,39 +239,6 @@ async def start_transcription(video_id: int, background_tasks: BackgroundTasks):
     return {"status": "success", "message": "Transcription process has been initiated."}
 
 
-@app.post("/api/webhook/transcription")
-async def transcription_webhook(request: Request, video_id: int):
-    """Webhook endpoint to receive transcription results from AssemblyAI."""
-    data = await request.json()
-    status = data.get("status")
-
-    logger.info(f"Received webhook for video_id: {video_id} with status: {status}")
-
-    if not video_id:
-        logger.error("Webhook error: video_id is missing.")
-        raise HTTPException(status_code=400, detail="video_id is missing from webhook URL.")
-
-    conn = get_db_connection()
-    try:
-        if status == "completed":
-            text = data.get("text", "")
-            conn.execute(
-                "UPDATE videos SET transcript = ?, transcription_status = 'completed' WHERE id = ?",
-                (text, video_id)
-            )
-            logger.info(f"Transcript for video_id {video_id} saved to database.")
-        elif status == "error":
-            error = data.get("error")
-            conn.execute(
-                "UPDATE videos SET transcription_status = 'failed' WHERE id = ?",
-                (video_id,)
-            )
-            logger.error(f"Transcription failed for video_id {video_id}. Error: {error}")
-        conn.commit()
-    finally:
-        conn.close()
-    
-    return {"status": "success"}
 
 @app.delete("/api/video/{video_id}")
 async def delete_video(video_id: int):
@@ -416,40 +375,44 @@ def transcode_and_update_db(db_filename: str, video_id: int, is_r2: bool):
         # Transcription is now triggered manually by the user.
 
     except Exception as e:
-        logger.error(f"Error during background processing for video_id {video_id}: {e}", exc_info=True)
+        print(f"Error during background processing for video_id {video_id}: {e}")
 
 def submit_transcription_task(video_id: int, db_filename: str):
     """
-    Submits a video for transcription and handles potential errors.
+    Submits a video for transcription, polls for the result, and saves it.
     This is run in the background.
     """
-    logger.info(f"Starting transcription submission for video_id: {video_id}")
+    print(f"Starting transcription task for video_id: {video_id}")
+    conn = get_db_connection()
+    conn.execute("UPDATE videos SET transcription_status = 'in_progress' WHERE id = ?", (video_id,))
+    conn.commit()
+    conn.close()
+
     try:
         BASE_URL = os.getenv("BASE_URL", "http://localhost:8000").rstrip('/')
         is_r2 = is_r2_configured()
-
-        transcription_video_url = f"{BASE_URL}/video-file/{video_id}" if is_r2 else f"{BASE_URL}/{UPLOADS_DIR}/{db_filename}"
-        webhook_url = f"{BASE_URL}/api/webhook/transcription?video_id={video_id}"
-
-        logger.info(f"Submitting video_id {video_id} to transcription service with URL: {transcription_video_url}")
-        submit_for_transcription(transcription_video_url, webhook_url)
+        
+        video_url = f"{BASE_URL}/video-file/{video_id}" if is_r2 else f"{BASE_URL}/{UPLOADS_DIR}/{db_filename}"
+        
+        print(f"Starting transcription for video URL: {video_url}")
+        from .transcription import transcribe_and_poll
+        transcript_text = transcribe_and_poll(video_url)
         
         conn = get_db_connection()
-        conn.execute("UPDATE videos SET transcription_status = 'in_progress' WHERE id = ?", (video_id,))
+        conn.execute(
+            "UPDATE videos SET transcript = ?, transcription_status = 'completed' WHERE id = ?",
+            (transcript_text, video_id)
+        )
         conn.commit()
         conn.close()
-        logger.info(f"Successfully submitted video_id {video_id} for transcription. Status set to 'in_progress'.")
+        print(f"Successfully transcribed and saved video_id {video_id}.")
 
     except Exception as e:
-        logger.error(f"Error submitting transcription for video_id {video_id}: {e}", exc_info=True)
-        try:
-            conn = get_db_connection()
-            conn.execute("UPDATE videos SET transcription_status = 'failed' WHERE id = ?", (video_id,))
-            conn.commit()
-            conn.close()
-            logger.info(f"Set transcription_status to 'failed' for video_id {video_id} due to submission error.")
-        except Exception as db_e:
-            logger.error(f"Could not even set status to 'failed' for video_id {video_id}: {db_e}", exc_info=True)
+        print(f"Error during transcription for video_id {video_id}: {e}")
+        conn = get_db_connection()
+        conn.execute("UPDATE videos SET transcription_status = 'failed' WHERE id = ?", (video_id,))
+        conn.commit()
+        conn.close()
 
 
 async def analysis_page_factory(view_type: str, request: Request, video_id: int):
