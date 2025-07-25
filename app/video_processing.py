@@ -28,7 +28,8 @@ def transcode_to_hls(input_url: str, video_id: int):
                 hls_segment_filename=os.path.join(output_dir, 'segment%03d.ts'),
                 vcodec='libx264', # Standard video codec
                 acodec='aac',      # Standard audio codec
-                ar=48000           # Standard audio rate
+                ar='48000',        # Standard audio rate
+                ac=2               # Force stereo audio
             )
             .run(capture_stdout=True, capture_stderr=True)
         )

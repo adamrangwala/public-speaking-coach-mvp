@@ -209,20 +209,27 @@ async def save_transcript(
 async def transcription_webhook(request: Request, video_id: int):
     """Webhook endpoint to receive transcription results from AssemblyAI."""
     data = await request.json()
-    transcript_id = data.get("transcript_id")
     status = data.get("status")
-    text = data.get("text")
 
-    if not all([transcript_id, status, text, video_id]):
-        raise HTTPException(status_code=400, detail="Missing required fields in webhook data.")
+    print(f"Received webhook for video_id: {video_id} with status: {status}")
+
+    if not video_id:
+        print("Webhook error: video_id is missing.")
+        raise HTTPException(status_code=400, detail="video_id is missing from webhook URL.")
 
     if status == "completed":
+        text = data.get("text", "") # Default to empty string if text is null
+        print(f"Transcript for video_id {video_id} completed successfully.")
         conn = get_db_connection()
         try:
             conn.execute("UPDATE videos SET transcript = ? WHERE id = ?", (text, video_id))
             conn.commit()
+            print(f"Transcript for video_id {video_id} saved to database.")
         finally:
             conn.close()
+    elif status == "error":
+        error = data.get("error")
+        print(f"Transcription failed for video_id {video_id}. Error: {error}")
     
     return {"status": "success"}
 
