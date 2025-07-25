@@ -73,6 +73,18 @@ def generate_presigned_url(object_name: str, expiration: int = 3600) -> str:
         print(f"Error generating presigned URL: {e}")
         return None
 
+def delete_file_from_r2(object_name: str):
+    """Delete a file from an R2 bucket."""
+    r2_client = get_r2_client()
+    if not r2_client:
+        raise ConnectionError("R2 client is not available or configured.")
+
+    try:
+        r2_client.delete_object(Bucket=CLOUDFLARE_R2_BUCKET_NAME, Key=object_name)
+    except ClientError as e:
+        print(f"Error deleting file from R2: {e}")
+        raise IOError(f"Could not delete file from R2: {object_name}")
+
 def test_r2_connection():
     """Test the connection to R2 by listing buckets."""
     r2_client = get_r2_client()

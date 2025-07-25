@@ -33,8 +33,9 @@
     </div>
 
     <!-- Previous Videos Section -->
-    <div class="previous-videos-section card" x-data="fileUpload()">
+    <div class="previous-videos-section card" x-data="videoList()">
         <h2>Previous Analyses</h2>
+        <div x-show="error" x-text="error" class="error-message" style="margin-bottom: 15px;"></div>
         {% if videos %}
             <ul class="video-list">
                 {% for video in videos %}
@@ -149,21 +150,31 @@ function fileUpload() {
                 xhr.open('POST', '/upload', true);
                 xhr.send(formData);
             }
-        },
+        }
+    }
+}
+
+function videoList() {
+    return {
+        error: '',
         deleteVideo(videoId, event) {
             if (!confirm('Are you sure you want to delete this analysis? This action cannot be undone.')) {
                 return;
             }
+            
+            const listItem = event.currentTarget.closest('.video-list-item');
 
             fetch(`/api/video/${videoId}`, {
                 method: 'DELETE'
             })
             .then(response => {
                 if (response.ok) {
-                    event.target.closest('.video-list-item').remove();
+                    listItem.remove();
                 } else {
                     response.json().then(data => {
                         this.error = data.detail || 'Failed to delete video.';
+                    }).catch(() => {
+                        this.error = 'Failed to delete video and could not parse error response.';
                     });
                 }
             })

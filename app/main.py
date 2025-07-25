@@ -201,7 +201,7 @@ async def delete_video(video_id: int):
     conn = get_db_connection()
     try:
         # First, get the video's filename to delete the file
-        video_cursor = conn.execute("SELECT filename, upload_url FROM videos WHERE id = ?", (video_id,))
+        video_cursor = conn.execute("SELECT filename FROM videos WHERE id = ?", (video_id,))
         video_data = video_cursor.fetchone()
         if not video_data:
             raise HTTPException(status_code=404, detail="Video not found")
@@ -219,9 +219,7 @@ async def delete_video(video_id: int):
             if os.path.exists(local_path):
                 os.remove(local_path)
 
-        # Delete notes associated with the video
-        conn.execute("DELETE FROM notes WHERE video_id = ?", (video_id,))
-        # Delete the video record itself
+        # Delete the video record. Associated notes are deleted by CASCADE.
         conn.execute("DELETE FROM videos WHERE id = ?", (video_id,))
         conn.commit()
 

@@ -6,6 +6,7 @@ DATABASE_URL = config("DATABASE_URL", default="sqlite:///./app.db")
 
 def get_db_connection():
     conn = sqlite3.connect(DATABASE_URL.replace("sqlite:///", ""))
+    conn.execute("PRAGMA foreign_keys = ON")
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -44,7 +45,7 @@ def create_tables():
         prompt_id INTEGER NOT NULL,
         content TEXT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (video_id) REFERENCES videos (id),
+        FOREIGN KEY (video_id) REFERENCES videos (id) ON DELETE CASCADE,
         FOREIGN KEY (prompt_id) REFERENCES prompts (id),
         UNIQUE(video_id, prompt_id)
     );
