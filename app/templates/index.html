@@ -1,36 +1,56 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container">
-    <!-- Upload Section -->
-    <div class="upload-section card" x-data="fileUpload()">
-        <h2>Upload a New Video</h2>
-        <p>Drag & drop your file here or click to select.</p>
-        <div
-            class="drop-area"
-            :class="{ 'drag-over': isDragging }"
-            @dragover.prevent="isDragging = true"
-            @dragleave.prevent="isDragging = false"
-            @drop.prevent="handleDrop"
-            @click="$refs.fileInput.click()"
-        >
-            <form id="upload-form" action="/upload" method="post" enctype="multipart/form-data" class="hidden">
-                <input type="file" name="file" @change="handleFileSelect" x-ref="fileInput">
-            </form>
-            <p x-show="!fileName">Drop file here or click to upload</p>
-            <p x-show="fileName" x-text="fileName"></p>
-            <div x-show="error" x-text="error" class="error-message"></div>
-        </div>
-        <div x-show="isUploading" class="progress-bar-container">
-            <div class="progress-bar" :style="`width: ${progress}%`">
-                <span x-text="progress > 0 ? `${progress}%` : ''"></span>
+<div class="container-grid">
+    <!-- Left Column: Instructions -->
+    <div class="instructions-column">
+        <div class="card">
+            <h2>How It Works</h2>
+            <p>Follow these simple steps to improve your public speaking.</p>
+            <div class="video-container">
+                <iframe src="https://www.youtube.com/embed/mXPIJosPsVU" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
             </div>
+            <ol class="steps-list">
+                <li><strong>Upload Your Video:</strong> Record and upload a 3-5 minute video of yourself speaking.</li>
+                <li><strong>Analyze Your Voice:</strong> Listen to the audio-only playback to focus on your tone, pace, and use of filler words.</li>
+                <li><strong>Review Your Presence:</strong> Watch the video without sound to analyze your body language, gestures, and facial expressions.</li>
+                <li><strong>Refine Your Content:</strong> Use the auto-generated transcript to check for clarity, conciseness, and impact.</li>
+            </ol>
         </div>
-        <button @click="submitForm" :disabled="!file || isUploading" class="button">
-            <span x-show="!isUploading">Analyze Video</span>
-            <span x-show="isUploading">Uploading...</span>
-        </button>
     </div>
+
+    <!-- Right Column: Upload -->
+    <div class="upload-column">
+        <div class="upload-section card" x-data="fileUpload()">
+            <h2>Upload a New Video</h2>
+            <p>Drag & drop your file here or click to select.</p>
+            <div
+                class="drop-area"
+                :class="{ 'drag-over': isDragging }"
+                @dragover.prevent="isDragging = true"
+                @dragleave.prevent="isDragging = false"
+                @drop.prevent="handleDrop"
+                @click="$refs.fileInput.click()"
+            >
+                <form id="upload-form" action="/upload" method="post" enctype="multipart/form-data" class="hidden">
+                    <input type="file" name="file" @change="handleFileSelect" x-ref="fileInput">
+                </form>
+                <p x-show="!fileName">Drop file here or click to upload</p>
+                <p x-show="fileName" x-text="fileName"></p>
+                <div x-show="error" x-text="error" class="error-message"></div>
+            </div>
+            <div x-show="isUploading" class="progress-bar-container">
+                <div class="progress-bar" :style="`width: ${progress}%`">
+                    <span x-text="progress > 0 ? `${progress}%` : ''"></span>
+                </div>
+            </div>
+            <button @click="submitForm" :disabled="!file || isUploading" class="button">
+                <span x-show="!isUploading">Analyze Video</span>
+                <span x-show="isUploading">Uploading...</span>
+            </button>
+        </div>
+    </div>
+</div>
 
     <!-- Previous Videos Section -->
     <div class="previous-videos-section card" x-data="videoList()">
@@ -197,6 +217,53 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 <style>
+.container-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 20px;
+    align-items: start;
+}
+.instructions-column .card {
+    background-color: #f8f9fa;
+}
+.video-container {
+    position: relative;
+    padding-bottom: 56.25%; /* 16:9 aspect ratio */
+    height: 0;
+    overflow: hidden;
+    max-width: 100%;
+    background: #000;
+    margin: 20px 0;
+    border-radius: var(--radius);
+}
+.video-container iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+.steps-list {
+    list-style: none;
+    padding-left: 0;
+    margin-top: 20px;
+}
+.steps-list li {
+    position: relative;
+    padding-left: 30px;
+    margin-bottom: 15px;
+    font-size: 1em;
+    line-height: 1.5;
+}
+.steps-list li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    top: 0;
+    font-weight: bold;
+    color: var(--primary);
+    font-size: 1.2em;
+}
 .card {
     background-color: #fff;
     border: 1px solid var(--border);

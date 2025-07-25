@@ -1,11 +1,11 @@
 :root {
-  --primary: #405DE6;     /* Instagram Blue */
-  --secondary: #5851DB;   /* Purple */
-  --background: #FAFAFA;  /* Light gray */
-  --text: #262626;        /* Dark gray */
-  --border: #DBDBDB;      /* Light border */
-  --radius: 8px;
-  --shadow: 0 2px 4px rgba(0,0,0,0.1);
+  --primary: #3867d6; /* A more professional blue */
+  --secondary: #4b7bec; /* A lighter blue for hover states */
+  --background: #f4f5f7; /* A slightly cooler light gray */
+  --text: #333; /* A softer black */
+  --border: #e0e0e0; /* A lighter border color */
+  --radius: 6px; /* A slightly smaller border radius */
+  --shadow: 0 1px 3px rgba(0,0,0,0.05); /* A more subtle shadow */
 }
 
 body {
@@ -17,23 +17,21 @@ body {
 }
 
 .container {
-    max-width: 800px;
+    max-width: 1200px;
     margin: 0 auto;
-    background-color: #fff;
     padding: 20px;
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
 }
 
 .button {
     background-color: var(--primary);
     color: #fff;
-    padding: 10px 20px;
+    padding: 12px 24px;
     border-radius: var(--radius);
     text-decoration: none;
     display: inline-block;
     border: none;
     cursor: pointer;
+    font-weight: 500;
     transition: background-color 0.2s, transform 0.1s;
 }
 
@@ -43,6 +41,11 @@ body {
 
 .button:active {
     transform: scale(0.98);
+}
+
+.button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
 }
 
 .progress-bar-container {
@@ -111,4 +114,48 @@ body {
     display: flex;
     justify-content: space-between;
     margin-top: 20px;
+}
+.sidebar-header {
+    padding: 0 15px 10px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 10px;
+}
+.sidebar-header h3 {
+    margin: 0;
+    font-size: 1.1em;
+}
+.progress-steps {
+    margin-top: 20px;
+}
+.step {
+    display: flex;
+    align-items: center;
+    padding: 12px 15px;
+    border-radius: var(--radius);
+    text-decoration: none;
+    color: var(--text);
+    margin-bottom: 8px;
+    transition: background-color 0.2s;
+    border-left: 4px solid transparent;
+}
+.step:hover {
+    background-color: #e9ecef;
+}
+.step.active {
+    background-color: #e8eaf6; /* A light purple/blue */
+    color: var(--primary);
+    font-weight: bold;
+    border-left: 4px solid var(--primary);
+}
+.step-icon {
+    margin-right: 15px;
+    display: flex;
+    align-items: center;
+}
+.step-icon i {
+    width: 20px;
+    height: 20px;
+}
+.step.active .step-icon {
+    color: var(--primary);
 }

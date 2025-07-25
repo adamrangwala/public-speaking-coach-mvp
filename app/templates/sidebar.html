@@ -1,22 +1,30 @@
 <nav class="sidebar">
-    <a href="/" class="sidebar-link {% if request.path == '/' %}active{% endif %}">
+    <div class="sidebar-header">
+        <h3>Analysis Steps</h3>
+    </div>
+    <a href="/" class="sidebar-link {% if request.url.path == '/' %}active{% endif %}">
         <i data-feather="home"></i>
-        <span>&nbsp;Dashboard</span>
+        <span>Dashboard</span>
     </a>
-    <a href="/audio/{{ video_id }}" class="sidebar-link {% if request.path.startswith('/audio/') %}active{% endif %}">
-        <i data-feather="mic"></i>
-        <span>&nbsp;Audio Image</span>
-    </a>
-    <a href="/video/{{ video_id }}" class="sidebar-link {% if request.path.startswith('/video/') %}active{% endif %}">
-        <i data-feather="video"></i>
-        <span>&nbsp;Video Image</span>
-    </a>
-    <a href="/text/{{ video_id }}" class="sidebar-link {% if request.path.startswith('/text/') %}active{% endif %}">
-        <i data-feather="file-text"></i>
-        <span>&nbsp;Transcription</span>
-    </a>
-    <a href="/report/{{ video_id }}" class="sidebar-link {% if request.path.startswith('/report/') %}active{% endif %}">
-        <i data-feather="bar-chart-2"></i>
-        <span>&nbsp;Report</span>
-    </a>
+    
+    {% if video_id %}
+    <div class="progress-steps">
+        <a href="/audio/{{ video_id }}" class="step {% if 'audio' in request.url.path %}active{% endif %}">
+            <div class="step-icon"><i data-feather="mic"></i></div>
+            <div class="step-label">1. Audio Analysis</div>
+        </a>
+        <a href="/video/{{ video_id }}" class="step {% if 'video' in request.url.path %}active{% endif %}">
+            <div class="step-icon"><i data-feather="video"></i></div>
+            <div class="step-label">2. Video Presence</div>
+        </a>
+        <a href="/text/{{ video_id }}" class="step {% if 'text' in request.url.path %}active{% endif %}">
+            <div class="step-icon"><i data-feather="file-text"></i></div>
+            <div class="step-label">3. Transcription</div>
+        </a>
+        <a href="/report/{{ video_id }}" class="step {% if 'report' in request.url.path %}active{% endif %}">
+            <div class="step-icon"><i data-feather="bar-chart-2"></i></div>
+            <div class="step-label">4. Final Report</div>
+        </a>
+    </div>
+    {% endif %}
 </nav>
