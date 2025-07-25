@@ -96,9 +96,15 @@ def test_r2_connection():
     if not r2_client:
         return {"status": "R2 not configured"}
     try:
-        r2_client.list_buckets()
+        # Use head_bucket which is a lower-permission way to check for bucket existence and access
+        r2_client.head_bucket(Bucket=CLOUDFLARE_R2_BUCKET_NAME)
         return {"status": "connected"}
     except ClientError as e:
+        # If a client error is thrown, check if it was a 404 error.
+        # If it was a 404 error, then the bucket does not exist.
+        error_code = int(e.response['Error']['Code'])
+        if error_code == 404:
+            return {"status": "error", "message": f"Bucket '{CLOUDFLARE_R2_BUCKET_NAME}' not found."}
         return {"status": "error", "message": f"Connection failed: {e.response['Error']['Code']}"}
     except Exception as e:
         return {"status": "error", "message": str(e)}

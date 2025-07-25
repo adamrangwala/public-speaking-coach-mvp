@@ -25,7 +25,9 @@ def transcode_to_hls(input_url: str, video_id: int):
                 format='hls',
                 hls_time=10,
                 hls_list_size=0,
-                hls_segment_filename=os.path.join(output_dir, 'segment%03d.ts')
+                hls_segment_filename=os.path.join(output_dir, 'segment%03d.ts'),
+                vcodec='libx264', # Standard video codec
+                acodec='aac'       # Standard audio codec
             )
             .run(capture_stdout=True, capture_stderr=True)
         )
