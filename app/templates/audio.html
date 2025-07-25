@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="container" x-data="notesApp({{ video_id }}, 'audio')">
-    <h1>Audio Analysis: Voice & Tone</h1>
+    <h1>1. Audio Image Review</h1>
     <p>Listen to the audio and reflect on your vocal delivery using the prompts below.</p>
 
     <!-- Audio Player -->
@@ -11,15 +11,6 @@
             <source src="{{ video.upload_url }}" type="{{ video.mime_type }}">
             Your browser does not support the audio tag.
         </audio>
-    </div>
-
-    <!-- Navigation -->
-    <div class="view-navigation">
-        <a href="/" class="nav-link">Dashboard</a>
-        <a href="/video/{{ video_id }}" class="nav-link">Video</a>
-        <a href="/audio/{{ video_id }}" class="nav-link active">Audio</a>
-        <a href="/text/{{ video_id }}" class="nav-link">Text</a>
-        <a href="/report/{{ video_id }}" class="nav-link">Report</a>
     </div>
 
     <!-- Prompts and Notes -->
@@ -42,6 +33,11 @@
             </div>
         </div>
         {% endfor %}
+    </div>
+
+    <!-- Page Navigation -->
+    <div class="page-navigation">
+        <a href="/video/{{ video_id }}" class="button">Next: Video Image</a>
     </div>
 </div>
 

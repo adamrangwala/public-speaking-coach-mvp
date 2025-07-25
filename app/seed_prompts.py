@@ -14,19 +14,22 @@ def seed_prompts():
 
     prompts = [
         # Video Prompts (Body Language)
-        ('video', 'How was my posture and stance throughout the presentation?', 1),
-        ('video', 'Were my gestures natural and supportive of my message?', 2),
-        ('video', 'Did my facial expressions align with the content I was delivering?', 3),
+        ('video', 'How do you use your hands?',  1),
+        ('video', 'Is there a purpose to how you move?', 2),
+        ('video', 'What are your facial expressions like?', 3),
+        ('video', 'Additional notes?', 4),
 
         # Audio Prompts (Voice & Tone)
-        ('audio', 'Was my pace of speaking appropriate? Too fast or too slow?', 1),
+        ('audio', 'What do you like about it?', 1),
         ('audio', 'Did I use vocal variety (pitch, volume, tone) effectively?', 2),
-        ('audio', 'How was my use of filler words (um, ah, like)?', 3),
+        ('audio', 'What did I not like about it?', 3),
+        ('audio', 'Additional notes?', 4),
 
         # Text Prompts (Content & Structure)
-        ('text', 'Was the opening engaging and the closing memorable?', 1),
-        ('text', 'Was the core message clear and easy to understand?', 2),
-        ('text', 'How was the overall structure and flow of the content?', 3),
+        ('text', 'Are you using a lot of filler words?', 1),
+        ('text', 'Are you using ahs and uhms?', 2),
+        ('text', 'How intentional is your word choice?', 3),
+        ('text', 'Additional notes?', 4)
     ]
 
     conn = get_db_connection()

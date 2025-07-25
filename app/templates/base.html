@@ -6,8 +6,19 @@
     <title>Public Speaking Coach</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/timeago.js/4.0.2/timeago.min.js"></script>
+    <script src="https://unpkg.com/feather-icons"></script>
 </head>
 <body>
-    {% block content %}{% endblock %}
+    <div class="main-layout">
+        {% if request.path.startswith('/video/') or request.path.startswith('/audio/') or request.path.startswith('/text/') or request.path.startswith('/report/') %}
+            {% include 'sidebar.html' %}
+        {% endif %}
+        <main class="content-area">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+    <script>
+        feather.replace()
+    </script>
 </body>
 </html>

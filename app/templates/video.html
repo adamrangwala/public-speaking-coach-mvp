@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="container" x-data="notesApp({{ video_id }}, 'video')">
-    <h1>Video Analysis: Body Language</h1>
+    <h1>2. Video Image Review</h1>
     <p>Watch the video (muted) and reflect on your body language using the prompts below.</p>
 
     <!-- Video Player -->
@@ -11,15 +11,6 @@
             <source src="{{ video.upload_url }}" type="{{ video.mime_type }}">
             Your browser does not support the video tag.
         </video>
-    </div>
-
-    <!-- Navigation -->
-    <div class="view-navigation">
-        <a href="/" class="nav-link">Dashboard</a>
-        <a href="/video/{{ video_id }}" class="nav-link active">Video</a>
-        <a href="/audio/{{ video_id }}" class="nav-link">Audio</a>
-        <a href="/text/{{ video_id }}" class="nav-link">Text</a>
-        <a href="/report/{{ video_id }}" class="nav-link">Report</a>
     </div>
 
     <!-- Prompts and Notes -->
@@ -42,6 +33,12 @@
             </div>
         </div>
         {% endfor %}
+    </div>
+
+    <!-- Page Navigation -->
+    <div class="page-navigation">
+        <a href="/audio/{{ video_id }}" class="button secondary">Previous: Audio Image</a>
+        <a href="/text/{{ video_id }}" class="button">Next: Transcription</a>
     </div>
 </div>
 

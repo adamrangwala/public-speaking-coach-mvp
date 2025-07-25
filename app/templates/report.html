@@ -6,22 +6,19 @@
     <p>Here are all your notes from the analysis. You can copy them to your clipboard or download them as a text file.</p>
 
     <!-- Navigation -->
-    <div class="view-navigation">
-        <a href="/" class="nav-link">Dashboard</a>
-        <a href="/video/{{ video_id }}" class="nav-link">Video</a>
-        <a href="/audio/{{ video_id }}" class="nav-link">Audio</a>
-        <a href="/text/{{ video_id }}" class="nav-link">Text</a>
-        <a href="/report/{{ video_id }}" class="nav-link active">Report</a>
-    </div>
+    <!-- The main navigation is now in the sidebar -->
 
     <!-- Report Content -->
     <div id="report-content" class="report-section">
-        {% if notes %}
-            {% for note in notes %}
-            <div class="report-item">
-                <h3>{{ note.question }}</h3>
-                <p>{{ note.content | nl2br }}</p>
-            </div>
+        {% if report_sections %}
+            {% for section in report_sections %}
+                <h2 class="section-header">{{ section.title }}</h2>
+                {% for note in section.notes %}
+                <div class="report-item">
+                    <h3>{{ note.question }}</h3>
+                    <p>{{ note.content | nl2br }}</p>
+                </div>
+                {% endfor %}
             {% endfor %}
         {% else %}
             <p>No notes have been added yet. Go back to the analysis views to add your thoughts.</p>
@@ -45,11 +42,22 @@ function reportActions() {
             const reportEl = document.getElementById('report-content');
             let text = 'Public Speaking Analysis Report\n';
             text += '=================================\n\n';
-            reportEl.querySelectorAll('.report-item').forEach(item => {
-                const question = item.querySelector('h3').innerText;
-                const answer = item.querySelector('p').innerText;
-                text += `Q: ${question}\n`;
-                text += `A: ${answer}\n\n`;
+            let currentHeader = '';
+            reportEl.childNodes.forEach(node => {
+                if (node.nodeType === Node.ELEMENT_NODE) {
+                    if (node.classList.contains('section-header')) {
+                        const headerText = node.innerText;
+                        if (headerText !== currentHeader) {
+                            currentHeader = headerText;
+                            text += `\n--- ${currentHeader.toUpperCase()} ---\n\n`;
+                        }
+                    } else if (node.classList.contains('report-item')) {
+                        const question = node.querySelector('h3').innerText;
+                        const answer = node.querySelector('p').innerText;
+                        text += `Q: ${question}\n`;
+                        text += `A: ${answer}\n\n`;
+                    }
+                }
             });
             return text;
         },
@@ -106,6 +114,16 @@ function reportActions() {
     border-radius: var(--radius);
     padding: 20px;
     margin-bottom: 20px;
+}
+.section-header {
+    margin-top: 20px;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--primary);
+    color: var(--primary);
+}
+.section-header:first-of-type {
+    margin-top: 0;
 }
 .report-item {
     margin-bottom: 20px;

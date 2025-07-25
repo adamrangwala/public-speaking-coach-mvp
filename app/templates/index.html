@@ -33,16 +33,19 @@
     </div>
 
     <!-- Previous Videos Section -->
-    <div class="previous-videos-section card">
+    <div class="previous-videos-section card" x-data="fileUpload()">
         <h2>Previous Analyses</h2>
         {% if videos %}
             <ul class="video-list">
                 {% for video in videos %}
-                <li class="video-list-item">
-                    <a href="/video/{{ video.id }}">
+                <li class="video-list-item" style="display: flex; align-items: center;">
+                    <a href="/video/{{ video.id }}" style="flex-grow: 1; text-decoration: none; color: inherit; display: flex; justify-content: space-between; padding: 15px;">
                         <span class="filename">{{ video.original_filename }}</span>
                         <span class="date" data-created-at="{{ video.created_at }}"></span>
                     </a>
+                    <button @click.prevent.stop="deleteVideo({{ video.id }}, $event)" class="delete-button" style="background: none; border: none; cursor: pointer; color: #e74c3c; padding: 0 15px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                    </button>
                 </li>
                 {% endfor %}
             </ul>
@@ -122,11 +125,9 @@ function fileUpload() {
                 xhr.addEventListener('load', () => {
                     this.isUploading = false;
                     if (xhr.status >= 200 && xhr.status < 300) {
-                        // Redirect will be followed, final URL is in responseURL
                         if (xhr.responseURL) {
                             window.location.href = xhr.responseURL;
                         } else {
-                            // Fallback for browsers that might not support responseURL in all cases
                             this.error = 'Upload successful, but redirect failed. Please refresh.';
                         }
                     } else {
@@ -148,6 +149,28 @@ function fileUpload() {
                 xhr.open('POST', '/upload', true);
                 xhr.send(formData);
             }
+        },
+        deleteVideo(videoId, event) {
+            if (!confirm('Are you sure you want to delete this analysis? This action cannot be undone.')) {
+                return;
+            }
+
+            fetch(`/api/video/${videoId}`, {
+                method: 'DELETE'
+            })
+            .then(response => {
+                if (response.ok) {
+                    event.target.closest('.video-list-item').remove();
+                } else {
+                    response.json().then(data => {
+                        this.error = data.detail || 'Failed to delete video.';
+                    });
+                }
+            })
+            .catch(err => {
+                this.error = 'An error occurred while deleting the video.';
+                console.error('Error:', err);
+            });
         }
     }
 }
@@ -156,11 +179,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const dateElements = document.querySelectorAll('.date[data-created-at]');
     dateElements.forEach(function(element) {
         const createdAt = element.getAttribute('data-created-at');
-        // SQLite format is 'YYYY-MM-DD HH:MM:SS'. We need to make it ISO compliant for JS Date.
-        // Appending 'Z' assumes the database stores time in UTC.
         const isoTimestamp = createdAt.replace(' ', 'T') + 'Z';
         const date = new Date(isoTimestamp);
-        // Use timeago.js to format the date
         element.textContent = timeago.format(date);
     });
 });

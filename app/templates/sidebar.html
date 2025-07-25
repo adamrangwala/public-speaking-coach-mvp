@@ -1,0 +1,22 @@
+<nav class="sidebar">
+    <a href="/" class="sidebar-link {% if request.path == '/' %}active{% endif %}">
+        <i data-feather="home"></i>
+        <span>&nbsp;Dashboard</span>
+    </a>
+    <a href="/audio/{{ video_id }}" class="sidebar-link {% if request.path.startswith('/audio/') %}active{% endif %}">
+        <i data-feather="mic"></i>
+        <span>&nbsp;Audio Image</span>
+    </a>
+    <a href="/video/{{ video_id }}" class="sidebar-link {% if request.path.startswith('/video/') %}active{% endif %}">
+        <i data-feather="video"></i>
+        <span>&nbsp;Video Image</span>
+    </a>
+    <a href="/text/{{ video_id }}" class="sidebar-link {% if request.path.startswith('/text/') %}active{% endif %}">
+        <i data-feather="file-text"></i>
+        <span>&nbsp;Transcription</span>
+    </a>
+    <a href="/report/{{ video_id }}" class="sidebar-link {% if request.path.startswith('/report/') %}active{% endif %}">
+        <i data-feather="bar-chart-2"></i>
+        <span>&nbsp;Report</span>
+    </a>
+</nav>

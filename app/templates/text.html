@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="container" x-data="textAnalysisApp({{ video_id }})">
-    <h1>Text Analysis: Content & Structure</h1>
+    <h1>3. Audio Transcription Review</h1>
     <p>Listen to the audio, transcribe your speech, and use the prompts to analyze your content.</p>
 
     <!-- Audio Player -->
@@ -29,15 +29,6 @@
         </div>
     </div>
 
-    <!-- Navigation -->
-    <div class="view-navigation">
-        <a href="/" class="nav-link">Dashboard</a>
-        <a href="/video/{{ video_id }}" class="nav-link">Video</a>
-        <a href="/audio/{{ video_id }}" class="nav-link">Audio</a>
-        <a href="/text/{{ video_id }}" class="nav-link active">Text</a>
-        <a href="/report/{{ video_id }}" class="nav-link">Report</a>
-    </div>
-
     <!-- Prompts and Notes -->
     <div class="notes-section">
         <h2>Guided Prompts</h2>
@@ -58,6 +49,12 @@
             </div>
         </div>
         {% endfor %}
+    </div>
+
+    <!-- Page Navigation -->
+    <div class="page-navigation">
+        <a href="/video/{{ video_id }}" class="button secondary">Previous: Video Image</a>
+        <a href="/report/{{ video_id }}" class="button">Finish & View Report</a>
     </div>
 </div>
 

@@ -8,6 +8,7 @@ from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
 from .database import get_db_connection, create_tables
 from .r2 import is_r2_configured, upload_file_to_r2, test_r2_connection, generate_presigned_url
+from .seed_prompts import seed_prompts
 
 # --- Constants ---
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
@@ -34,6 +35,7 @@ templates.env.filters['nl2br'] = nl2br
 @app.on_event("startup")
 def on_startup():
     create_tables()
+    seed_prompts()
     if not os.path.exists(UPLOADS_DIR):
         os.makedirs(UPLOADS_DIR)
 
@@ -62,17 +64,45 @@ async def text_page(request: Request, video_id: int):
 @app.get("/report/{video_id}", response_class=HTMLResponse)
 async def report_page(request: Request, video_id: int):
     conn = get_db_connection()
-    # Fetch all notes for the video, joined with their prompts
     notes_cursor = conn.execute("""
-        SELECT p.question, n.content
+        SELECT p.question, n.content, p.view_type
         FROM notes n
         JOIN prompts p ON n.prompt_id = p.id
         WHERE n.video_id = ?
-        ORDER BY p.view_type, p.order_index
+        ORDER BY
+            CASE p.view_type
+                WHEN 'audio' THEN 1
+                WHEN 'video' THEN 2
+                WHEN 'text' THEN 3
+                ELSE 4
+            END,
+            p.order_index
     """, (video_id,))
-    notes = notes_cursor.fetchall()
+    notes_data = notes_cursor.fetchall()
     conn.close()
-    return templates.TemplateResponse("report.html", {"request": request, "video_id": video_id, "notes": notes})
+
+    # Group notes by view_type in the desired order
+    report_sections_data = {
+        "audio": [],
+        "video": [],
+        "text": []
+    }
+    for note in notes_data:
+        view_type = note['view_type']
+        if view_type in report_sections_data:
+            report_sections_data[view_type].append(dict(note))
+
+    # Create a list of sections in the correct order, with correct titles
+    report_sections = [
+        {"title": "Audio Image", "notes": report_sections_data["audio"]},
+        {"title": "Video Image", "notes": report_sections_data["video"]},
+        {"title": "Audio Transcription", "notes": report_sections_data["text"]},
+    ]
+
+    # Filter out empty sections
+    report_sections = [section for section in report_sections if section["notes"]]
+
+    return templates.TemplateResponse("report.html", {"request": request, "video_id": video_id, "report_sections": report_sections})
 
 # --- API Endpoints ---
 
@@ -122,7 +152,7 @@ async def handle_upload(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
     finally:
         conn.close()
-    return RedirectResponse(url=f"/video/{video_id}", status_code=303)
+    return RedirectResponse(url=f"/audio/{video_id}", status_code=303)
 
 @app.post("/api/notes")
 async def save_note(
@@ -163,6 +193,44 @@ async def save_transcript(
         return {"status": "success", "message": "Transcript saved."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
+    finally:
+        conn.close()
+
+@app.delete("/api/video/{video_id}")
+async def delete_video(video_id: int):
+    conn = get_db_connection()
+    try:
+        # First, get the video's filename to delete the file
+        video_cursor = conn.execute("SELECT filename, upload_url FROM videos WHERE id = ?", (video_id,))
+        video_data = video_cursor.fetchone()
+        if not video_data:
+            raise HTTPException(status_code=404, detail="Video not found")
+
+        # Delete from R2 or local storage
+        if is_r2_configured():
+            from .r2 import delete_file_from_r2
+            try:
+                delete_file_from_r2(video_data["filename"])
+            except Exception as e:
+                # Log the error but proceed to delete DB record
+                print(f"Could not delete file from R2: {e}")
+        else:
+            local_path = os.path.join(UPLOADS_DIR, video_data["filename"])
+            if os.path.exists(local_path):
+                os.remove(local_path)
+
+        # Delete notes associated with the video
+        conn.execute("DELETE FROM notes WHERE video_id = ?", (video_id,))
+        # Delete the video record itself
+        conn.execute("DELETE FROM videos WHERE id = ?", (video_id,))
+        conn.commit()
+
+        return {"status": "success", "message": "Video and associated data deleted."}
+    except HTTPException as e:
+        # Re-raise HTTP exceptions
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database or file system error: {e}")
     finally:
         conn.close()
 
