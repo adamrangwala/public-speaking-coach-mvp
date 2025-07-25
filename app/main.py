@@ -346,8 +346,10 @@ def transcode_and_update_db(db_filename: str, video_id: int, is_r2: bool):
         # 2. Trigger Transcription
         if is_transcription_configured():
             # Use the stable redirect endpoint for R2, or the direct local URL
-            transcription_video_url = f"{BASE_URL}/video-file/{video_id}" if is_r2 else f"{BASE_URL}/{video_url}"
-            webhook_url = f"{BASE_URL}/api/webhook/transcription?video_id={video_id}"
+            # Ensure BASE_URL has no trailing slash before joining
+            base_url = BASE_URL.rstrip('/')
+            transcription_video_url = f"{base_url}/video-file/{video_id}" if is_r2 else f"{base_url}/{video_url}"
+            webhook_url = f"{base_url}/api/webhook/transcription?video_id={video_id}"
             submit_for_transcription(transcription_video_url, webhook_url)
 
     except Exception as e:
