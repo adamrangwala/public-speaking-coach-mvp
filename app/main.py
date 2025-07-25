@@ -1,7 +1,7 @@
 import os
 import shutil
 from datetime import datetime, timezone
-from fastapi import FastAPI, Request, UploadFile, File, HTTPException, Body
+from fastapi import FastAPI, Request, UploadFile, File, HTTPException, Body, BackgroundTasks
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -9,18 +9,25 @@ from markupsafe import Markup
 from .database import get_db_connection, create_tables
 from .r2 import is_r2_configured, upload_file_to_r2, test_r2_connection, generate_presigned_url
 from .seed_prompts import seed_prompts
+from .video_processing import transcode_to_hls
 
 # --- Constants ---
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 ALLOWED_EXTENSIONS = {".mp4", ".mov", ".avi", ".webm"}
 ALLOWED_MIME_TYPES = {"video/mp4", "video/quicktime", "video/x-msvideo", "video/webm"}
 UPLOADS_DIR = "uploads"
+HLS_PLAYLIST_DIR = "hls_playlists"
 
 app = FastAPI()
 
 # --- Static Files & Templates ---
+# Ensure static directories exist before mounting
+os.makedirs(UPLOADS_DIR, exist_ok=True)
+os.makedirs(HLS_PLAYLIST_DIR, exist_ok=True)
+
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+app.mount(f"/{UPLOADS_DIR}", StaticFiles(directory=UPLOADS_DIR), name="uploads")
+app.mount(f"/{HLS_PLAYLIST_DIR}", StaticFiles(directory=HLS_PLAYLIST_DIR), name="hls")
 
 templates = Jinja2Templates(directory="app/templates")
 
@@ -31,6 +38,11 @@ def nl2br(value: str) -> str:
     return Markup(value.replace('\n', '<br>\n'))
 
 templates.env.filters['nl2br'] = nl2br
+
+@app.on_event("startup")
+def on_startup():
+    create_tables()
+    seed_prompts()
 
 # --- Page Routes ---
 
@@ -100,7 +112,7 @@ async def report_page(request: Request, video_id: int):
 # --- API Endpoints ---
 
 @app.post("/upload")
-async def handle_upload(file: UploadFile = File(...)):
+async def handle_upload(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
     if file.size > MAX_FILE_SIZE:
         raise HTTPException(status_code=413, detail="File is too large (max 50MB).")
     file_ext = os.path.splitext(file.filename)[1].lower()
@@ -120,10 +132,8 @@ async def handle_upload(file: UploadFile = File(...)):
 
     if is_r2_configured():
         try:
-            # We don't store the direct URL anymore, just the filename (object key)
             upload_file_to_r2(temp_path, db_filename)
-            upload_url = "R2" # Placeholder to indicate it's in R2
-            os.remove(temp_path)
+            upload_url = "R2"
         except Exception as e:
             os.remove(temp_path)
             raise HTTPException(status_code=500, detail=f"R2 upload failed: {e}")
@@ -145,6 +155,10 @@ async def handle_upload(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
     finally:
         conn.close()
+
+    # Start transcoding in the background
+    background_tasks.add_task(transcode_and_update_db, temp_path, video_id, is_r2_configured())
+
     return RedirectResponse(url=f"/audio/{video_id}", status_code=303)
 
 @app.post("/api/notes")
@@ -211,6 +225,10 @@ async def delete_video(video_id: int):
             local_path = os.path.join(UPLOADS_DIR, video_data["filename"])
             if os.path.exists(local_path):
                 os.remove(local_path)
+            
+            hls_dir = os.path.join(HLS_PLAYLIST_DIR, str(video_id))
+            if os.path.exists(hls_dir):
+                shutil.rmtree(hls_dir)
 
         # Delete the video record. Associated notes are deleted by CASCADE.
         conn.execute("DELETE FROM videos WHERE id = ?", (video_id,))
@@ -247,6 +265,25 @@ def test_r2_endpoint():
 
 # --- Helper Functions ---
 
+def transcode_and_update_db(video_path: str, video_id: int, is_r2: bool):
+    """Background task to transcode video and update database."""
+    try:
+        hls_url = transcode_to_hls(video_path, video_id)
+        
+        conn = get_db_connection()
+        try:
+            conn.execute("UPDATE videos SET hls_playlist_url = ? WHERE id = ?", (hls_url, video_id))
+            conn.commit()
+        finally:
+            conn.close()
+            
+    except Exception as e:
+        print(f"Error during transcoding for video_id {video_id}: {e}")
+    finally:
+        # Clean up the original uploaded file
+        if os.path.exists(video_path):
+            os.remove(video_path)
+
 async def analysis_page_factory(view_type: str, request: Request, video_id: int):
     """Factory to render video, audio, or text analysis pages."""
     conn = get_db_connection()
@@ -259,8 +296,10 @@ async def analysis_page_factory(view_type: str, request: Request, video_id: int)
 
     video = dict(video_data)
 
-    # If using R2, generate a presigned URL for playback
-    if is_r2_configured() and video.get("filename"):
+    # If HLS playlist exists, use it. Otherwise, generate presigned URL for R2 if configured.
+    if video.get("hls_playlist_url"):
+        video["upload_url"] = video["hls_playlist_url"]
+    elif is_r2_configured() and video.get("filename"):
         presigned_url = generate_presigned_url(video["filename"])
         if presigned_url:
             video["upload_url"] = presigned_url

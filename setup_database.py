@@ -7,6 +7,7 @@ from app.database import create_tables
 from app.seed_prompts import seed_prompts
 
 UPLOADS_DIR = "uploads"
+HLS_PLAYLIST_DIR = "hls_playlists"
 
 def initialize_app():
     """
@@ -30,16 +31,17 @@ def initialize_app():
         print(f"Error seeding prompts: {e}")
         sys.exit(1)
 
-    try:
-        if not os.path.exists(UPLOADS_DIR):
-            print(f"Creating directory: {UPLOADS_DIR}")
-            os.makedirs(UPLOADS_DIR)
-            print(f"Directory '{UPLOADS_DIR}' created successfully.")
-        else:
-            print(f"Directory '{UPLOADS_DIR}' already exists.")
-    except Exception as e:
-        print(f"Error creating directory '{UPLOADS_DIR}': {e}")
-        sys.exit(1)
+    for directory in [UPLOADS_DIR, HLS_PLAYLIST_DIR]:
+        try:
+            if not os.path.exists(directory):
+                print(f"Creating directory: {directory}")
+                os.makedirs(directory)
+                print(f"Directory '{directory}' created successfully.")
+            else:
+                print(f"Directory '{directory}' already exists.")
+        except Exception as e:
+            print(f"Error creating directory '{directory}': {e}")
+            sys.exit(1)
 
     print("--- Application Initialization Complete ---")
 

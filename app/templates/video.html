@@ -7,10 +7,7 @@
 
     <!-- Video Player -->
     <div class="video-container">
-        <video controls muted width="100%">
-            <source src="{{ video.upload_url }}" type="{{ video.mime_type }}">
-            Your browser does not support the video tag.
-        </video>
+        <video id="hls-video" controls muted width="100%"></video>
     </div>
 
     <!-- Prompts and Notes -->
@@ -42,8 +39,26 @@
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <script src="//unpkg.com/alpinejs" defer></script>
 <script>
+document.addEventListener('DOMContentLoaded', function () {
+    var video = document.getElementById('hls-video');
+    var videoSrc = '{{ video.hls_playlist_url or video.upload_url }}';
+    
+    if (videoSrc && videoSrc.includes('.m3u8')) {
+        if (Hls.isSupported()) {
+            var hls = new Hls();
+            hls.loadSource(videoSrc);
+            hls.attachMedia(video);
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = videoSrc;
+        }
+    } else if (videoSrc) {
+        video.src = videoSrc;
+    }
+});
+
 function notesApp(videoId, viewType) {
     return {
         videoId: videoId,

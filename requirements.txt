@@ -4,3 +4,4 @@ jinja2
 python-decouple
 python-multipart
 boto3
+python-ffmpeg

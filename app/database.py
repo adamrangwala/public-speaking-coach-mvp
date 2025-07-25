@@ -23,6 +23,7 @@ def create_tables():
         mime_type TEXT NOT NULL,
         upload_url TEXT,
         transcript TEXT,
+        hls_playlist_url TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """)
