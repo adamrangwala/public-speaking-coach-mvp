@@ -32,13 +32,6 @@ def nl2br(value: str) -> str:
 
 templates.env.filters['nl2br'] = nl2br
 
-@app.on_event("startup")
-def on_startup():
-    create_tables()
-    seed_prompts()
-    if not os.path.exists(UPLOADS_DIR):
-        os.makedirs(UPLOADS_DIR)
-
 # --- Page Routes ---
 
 @app.get("/", response_class=HTMLResponse)
