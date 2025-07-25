@@ -1,0 +1,13 @@
+# Ignore database files
+app.db
+
+# Ignore uploaded media files
+uploads/
+hls_playlists/
+
+# Ignore Python cache files
+__pycache__/
+*.pyc
+
+# Ignore environment files
+.env
