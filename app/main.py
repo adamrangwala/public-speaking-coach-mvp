@@ -12,7 +12,7 @@ from .database import get_db_connection, create_tables
 from .r2 import is_r2_configured, upload_file_to_r2, download_file_from_r2, test_r2_connection, generate_presigned_url
 from .seed_prompts import seed_prompts
 from .video_processing import transcode_to_hls
-from .transcription import is_transcription_configured, submit_for_transcription
+from .transcription import is_transcription_configured, transcribe_and_poll as assemblyai_transcribe
 
 
 # --- Constants ---
@@ -395,8 +395,7 @@ def submit_transcription_task(video_id: int, db_filename: str):
         video_url = f"{BASE_URL}/video-file/{video_id}" if is_r2 else f"{BASE_URL}/{UPLOADS_DIR}/{db_filename}"
         
         print(f"Starting transcription for video URL: {video_url}")
-        from .transcription import transcribe_and_poll
-        transcript_text = transcribe_and_poll(video_url)
+        transcript_text = assemblyai_transcribe(video_url)
         
         conn = get_db_connection()
         conn.execute(
