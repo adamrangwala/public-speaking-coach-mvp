@@ -286,6 +286,26 @@ def test_db_endpoint():
 def test_r2_endpoint():
     return test_r2_connection()
 
+@app.get("/video-file/{video_id}")
+async def get_video_file(video_id: int):
+    """
+    Redirects to a presigned URL for the video file in R2.
+    This provides a stable URL for the transcription service.
+    """
+    conn = get_db_connection()
+    video_cursor = conn.execute("SELECT filename FROM videos WHERE id = ?", (video_id,))
+    video_data = video_cursor.fetchone()
+    conn.close()
+
+    if not video_data or not is_r2_configured():
+        raise HTTPException(status_code=404, detail="Video not found or R2 not configured.")
+
+    presigned_url = generate_presigned_url(video_data["filename"])
+    if not presigned_url:
+        raise HTTPException(status_code=500, detail="Could not generate presigned URL.")
+
+    return RedirectResponse(url=presigned_url)
+
 # --- Helper Functions ---
 
 def transcode_and_update_db(video_path: str, video_id: int, is_r2: bool):
@@ -301,17 +321,11 @@ def transcode_and_update_db(video_path: str, video_id: int, is_r2: bool):
             conn.close()
 
         if is_transcription_configured():
-            # We need a publicly accessible URL for the video file
-            if is_r2:
-                video_url = generate_presigned_url(os.path.basename(video_path))
-            else:
-                # This will only work if the application is publicly accessible
-                # For local development, we can use a service like ngrok to expose the local server
-                # For now, we assume the server is accessible at BASE_URL
-                BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
-                video_url = f"{BASE_URL}/{UPLOADS_DIR}/{os.path.basename(video_path)}"
-
-            webhook_url = f"{os.getenv('BASE_URL', 'http://localhost:8000')}/api/webhook/transcription?video_id={video_id}"
+            # Use the new endpoint to provide a stable URL for transcription
+            BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
+            video_url = f"{BASE_URL}/video-file/{video_id}"
+            webhook_url = f"{BASE_URL}/api/webhook/transcription?video_id={video_id}"
+            
             submit_for_transcription(video_url, webhook_url)
 
     except Exception as e:
@@ -333,13 +347,16 @@ async def analysis_page_factory(view_type: str, request: Request, video_id: int)
 
     video = dict(video_data)
 
-    # If HLS playlist exists, use it. Otherwise, generate presigned URL for R2 if configured.
-    if video.get("hls_playlist_url"):
+    # Determine the correct URL to use based on the page and configuration
+    if view_type == 'video' and video.get("hls_playlist_url"):
+        # For the video page, always prioritize the HLS stream if it exists
         video["upload_url"] = video["hls_playlist_url"]
     elif is_r2_configured() and video.get("filename"):
+        # For audio/text pages on R2, generate a presigned URL for the original file
         presigned_url = generate_presigned_url(video["filename"])
         if presigned_url:
             video["upload_url"] = presigned_url
+    # If not R2 and not HLS, the default local file URL in the DB is used
     
     prompts_cursor = conn.execute("""
         SELECT p.id, p.question, p.order_index, n.content
