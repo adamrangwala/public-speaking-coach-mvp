@@ -28,9 +28,10 @@ def transcode_to_hls(input_url: str, video_id: int):
                 hls_segment_filename=os.path.join(output_dir, 'segment%03d.ts'),
                 vcodec='libx264',
                 acodec='aac',
-                ar='48000',
-                ac=2,
-                **{'b:a': '128k'} # Set audio bitrate
+                ar=48000, # Audio sample rate
+                ac=2, # Stereo audio
+                audio_bitrate='128k', # Audio bitrate
+                vf='format=yuv420p' # Set pixel format for broad compatibility
             )
             .run(capture_stdout=True, capture_stderr=True)
         )

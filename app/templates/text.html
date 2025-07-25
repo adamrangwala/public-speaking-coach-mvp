@@ -14,17 +14,21 @@
     </div>
 
     <!-- Transcript Area -->
-    <div id="transcript-data" style="display: none;">{{ video.transcript or '' }}</div>
     <div class="transcript-area card">
         <h2>Speech Transcript</h2>
+        <div x-show="isPolling" class="polling-message" x-cloak>
+            <p>Your transcript is being processed. This page will update automatically when it's ready.</p>
+            <div class="spinner"></div>
+        </div>
         <textarea
             rows="15"
-            placeholder="Paste or type your speech transcript here..."
+            :placeholder="isPolling ? 'Waiting for transcript...' : 'Paste or type your speech transcript here...'"
             x-model="transcript"
             @input.debounce.500ms="saveTranscript"
+            :disabled="isPolling"
         ></textarea>
         <div x-text="transcriptStatus.message"
-             :class="{ 'saved': transcriptStatus.saved }"
+             :class="{ 'saved': transcriptStatus.saved, 'processing': isPolling }"
              class="status-message"
              :style="{ opacity: transcriptStatus.message ? 1 : 0 }">
         </div>
@@ -67,10 +71,47 @@ function textAnalysisApp(videoId) {
         transcript: '',
         transcriptStatus: { message: '', saved: false },
         status: {},
+        isPolling: false,
+        pollingInterval: null,
         init() {
-            this.transcript = document.getElementById('transcript-data').textContent.trim();
+            this.fetchTranscript();
+        },
+        fetchTranscript() {
+            fetch(`/api/video/${this.videoId}/transcript`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.transcript) {
+                        this.transcript = data.transcript;
+                        this.stopPolling();
+                    } else if (data.is_processing) {
+                        this.startPolling();
+                    } else {
+                        // Not processing and no transcript, so stop.
+                        this.stopPolling();
+                    }
+                })
+                .catch(err => {
+                    console.error("Error fetching transcript:", err);
+                    this.stopPolling();
+                });
+        },
+        startPolling() {
+            this.isPolling = true;
+            this.transcriptStatus = { message: 'Processing transcript...', saved: false };
+            if (!this.pollingInterval) {
+                this.pollingInterval = setInterval(() => this.fetchTranscript(), 3000); // Poll every 3 seconds
+            }
+        },
+        stopPolling() {
+            this.isPolling = false;
+            this.transcriptStatus = { message: '', saved: false };
+            if (this.pollingInterval) {
+                clearInterval(this.pollingInterval);
+                this.pollingInterval = null;
+            }
         },
         saveTranscript() {
+            if (this.isPolling) return; // Don't save while polling
             this.transcriptStatus = { message: 'Saving...', saved: false };
             fetch('/api/transcript', {
                 method: 'POST',
@@ -124,6 +165,31 @@ function textAnalysisApp(videoId) {
 }
 </script>
 <style>
+[x-cloak] { display: none !important; }
+
+.polling-message {
+    text-align: center;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: var(--radius);
+    margin-bottom: 15px;
+}
+.spinner {
+    border: 4px solid rgba(0, 0, 0, 0.1);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border-left-color: var(--primary);
+    animation: spin 1s ease infinite;
+    margin: 10px auto 0;
+}
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+.status-message.processing {
+    color: #6c757d; /* A neutral "in-progress" color */
+}
 .card {
     background-color: #fff;
     border: 1px solid var(--border);

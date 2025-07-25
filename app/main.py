@@ -275,6 +275,28 @@ async def delete_video(video_id: int):
     finally:
         conn.close()
 
+@app.get("/api/video/{video_id}/transcript")
+async def get_transcript(video_id: int):
+    """API endpoint to fetch the transcript for a video."""
+    conn = get_db_connection()
+    cursor = conn.execute("SELECT transcript, hls_playlist_url FROM videos WHERE id = ?", (video_id,))
+    video_data = cursor.fetchone()
+    conn.close()
+
+    if not video_data:
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    # A non-null hls_playlist_url is a good proxy for transcoding being done.
+    # Transcription doesn't start until after transcoding.
+    transcoding_done = video_data["hls_playlist_url"] is not None
+    transcript_text = video_data["transcript"]
+
+    return {
+        "transcript": transcript_text,
+        # Let the frontend know if we're still waiting for the transcript.
+        "is_processing": transcoding_done and not bool(transcript_text)
+    }
+
 # --- Health & Test Routes ---
 
 @app.get("/health")
