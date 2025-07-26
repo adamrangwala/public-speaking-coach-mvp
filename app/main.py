@@ -16,7 +16,7 @@ from .transcription import is_transcription_configured, transcribe_and_poll as a
 
 
 # --- Constants ---
-MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
+MAX_FILE_SIZE = 500 * 1024 * 1024  # 500MB
 ALLOWED_EXTENSIONS = {".mp4", ".mov", ".avi", ".webm"}
 ALLOWED_MIME_TYPES = {"video/mp4", "video/quicktime", "video/x-msvideo", "video/webm"}
 UPLOADS_DIR = "uploads"
