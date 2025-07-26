@@ -26,7 +26,8 @@ def transcribe_and_poll(file_url: str) -> str:
     config = aai.TranscriptionConfig(
         punctuate=True,
         format_text=True,
-        speech_model=aai.SpeechModel.best
+        speech_model=aai.SpeechModel.best,
+        disfluences=True
     )
 
     transcript = transcriber.transcribe(file_url, config=config)

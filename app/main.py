@@ -119,7 +119,7 @@ async def report_page(request: Request, video_id: int):
 @app.post("/upload")
 async def handle_upload(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
     if file.size > MAX_FILE_SIZE:
-        raise HTTPException(status_code=413, detail="File is too large (max 50MB).")
+        raise HTTPException(status_code=413, detail="File is too large (max 500MB).")
     file_ext = os.path.splitext(file.filename)[1].lower()
     if file_ext not in ALLOWED_EXTENSIONS or file.content_type not in ALLOWED_MIME_TYPES:
         raise HTTPException(status_code=400, detail="Invalid file type.")
