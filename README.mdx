@@ -92,19 +92,6 @@ User -- Notes/Transcript --> API
 - Templates in app/templates: Jinja2 views (audio, video, text, report)
 - Static styles in app/static/css/style.css
 
-## Tech & Dependencies
-
-From [`requirements.txt`](requirements.txt):
-- fastapi, uvicorn, jinja2
-- python-decouple for env management
-- python-multipart for uploads
-- boto3 for R2 (S3-compatible)
-- ffmpeg-python for media processing
-- assemblyai for transcription
-
-System dependencies:
-- ffmpeg (installed via Nixpacks/apt in Railway). See [`nixpacks.toml`](nixpacks.toml:5)
-
 ## Installation
 
 <details>
@@ -125,20 +112,17 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-3) Environment
-Create a .env file (see next section). For pure local without R2/transcription you can omit their keys.
-
-4) Initialize DB and folders
+3) Initialize DB and folders
 ```bash
 PYTHONPATH=. python setup_database.py
 ```
 
-5) Run server
+4) Run server
 ```bash
 uvicorn app.main:app --reload
 ```
 
-6) Open http://localhost:8000
+5) Open http://localhost:8000
 </details>
 
 <details>
